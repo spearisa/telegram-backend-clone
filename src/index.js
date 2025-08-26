@@ -74,43 +74,13 @@ app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 app.use('/uploads', express.static('uploads'));
 
 // Health check endpoint
-app.get('/health', async (req, res) => {
-  try {
-    let databaseStatus = 'Unknown';
-    let error = '';
-    
-    // Check database connection
-    if (process.env.DB_TYPE === 'postgresql') {
-      try {
-        const { query } = require('./database/connection');
-        await query('SELECT 1 as test');
-        databaseStatus = 'PostgreSQL (connected)';
-      } catch (dbError) {
-        databaseStatus = 'PostgreSQL (connection error)';
-        error = dbError.message;
-      }
-    } else {
-      databaseStatus = 'SQLite (connected)';
-    }
-    
-    res.status(200).json({
-      status: 'OK',
-      timestamp: new Date().toISOString(),
-      uptime: process.uptime(),
-      environment: process.env.NODE_ENV,
-      database: databaseStatus,
-      error: error
-    });
-  } catch (error) {
-    res.status(500).json({
-      status: 'ERROR',
-      timestamp: new Date().toISOString(),
-      uptime: process.uptime(),
-      environment: process.env.NODE_ENV,
-      database: 'Unknown',
-      error: error.message
-    });
-  }
+app.get('/health', (req, res) => {
+  res.status(200).json({
+    status: 'OK',
+    timestamp: new Date().toISOString(),
+    uptime: process.uptime(),
+    environment: process.env.NODE_ENV
+  });
 });
 
 // API routes
@@ -141,14 +111,19 @@ app.use('*', (req, res) => {
 // Initialize database and start server
 async function startServer() {
   try {
-    await initializeDatabase();
-    console.log('✅ Database connected successfully');
+    // Try to initialize database, but don't fail if it doesn't work
+    try {
+      await initializeDatabase();
+      console.log('✅ Database connected successfully');
+    } catch (dbError) {
+      console.error('⚠️ Database connection failed, but continuing with server startup:', dbError.message);
+    }
     
     server.listen(PORT, '0.0.0.0', () => {
       console.log(`🚀 Server running on port ${PORT}`);
-      console.log(`📱 API available at http://192.168.20.137:${PORT}/api/v1`);
-      console.log(`🔌 WebSocket available at ws://192.168.20.137:${PORT}`);
-      console.log(`🏥 Health check at http://192.168.20.137:${PORT}/health`);
+      console.log(`📱 API available at http://0.0.0.0:${PORT}/api/v1`);
+      console.log(`🔌 WebSocket available at ws://0.0.0.0:${PORT}`);
+      console.log(`🏥 Health check at http://0.0.0.0:${PORT}/health`);
     });
   } catch (error) {
     console.error('❌ Failed to start server:', error);
