@@ -1,11 +1,11 @@
 {
-  "name": "telegram-clone-backend-full",
+  "name": "telegram-clone-backend",
   "version": "1.0.0",
-  "description": "Full backend server for Telegram clone with real-time messaging and PostgreSQL database",
-  "main": "server.js",
+  "description": "Backend server for Telegram clone with real-time messaging",
+  "main": "src/index.js",
   "scripts": {
-    "start": "node server.js",
-    "dev": "nodemon server.js",
+    "start": "node start.js",
+    "dev": "nodemon src/index.js",
     "test": "jest",
     "migrate": "node src/database/migrate.js",
     "setup-db": "node setup-database.js"
@@ -15,8 +15,7 @@
     "messaging",
     "real-time",
     "signal",
-    "encryption",
-    "postgresql"
+    "encryption"
   ],
   "author": "Your Name",
   "license": "MIT",

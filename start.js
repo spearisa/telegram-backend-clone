@@ -1,22 +1,11 @@
-#!/usr/bin/env node
-
-// Simple start script for Railway deployment
 const { spawn } = require('child_process');
 const path = require('path');
 
-console.log('🚀 Starting Telegram Clone Backend...');
-console.log('📁 Current directory:', process.cwd());
-console.log('🔧 Node version:', process.version);
-console.log('🌍 Environment:', process.env.NODE_ENV || 'development');
+console.log('🚀 Starting Telegram Clone Backend Server...');
 
-// Check if we're in the right directory
-const packageJsonPath = path.join(process.cwd(), 'package.json');
-const fs = require('fs');
-
-if (!fs.existsSync(packageJsonPath)) {
-  console.error('❌ package.json not found. Make sure you\'re in the server directory.');
-  process.exit(1);
-}
+// Set environment variables
+process.env.NODE_ENV = process.env.NODE_ENV || 'production';
+process.env.DB_TYPE = process.env.DB_TYPE || 'postgresql';
 
 // Start the server
 const server = spawn('node', ['src/index.js'], {
@@ -25,22 +14,22 @@ const server = spawn('node', ['src/index.js'], {
 });
 
 server.on('error', (error) => {
-  console.error('❌ Failed to start server:', error);
+  console.error('❌ Server error:', error);
   process.exit(1);
 });
 
-server.on('exit', (code) => {
-  console.log(`Server exited with code ${code}`);
+server.on('close', (code) => {
+  console.log(`🔄 Server process exited with code ${code}`);
   process.exit(code);
 });
 
-// Handle process signals
+// Handle graceful shutdown
 process.on('SIGTERM', () => {
-  console.log('SIGTERM received, shutting down...');
+  console.log('🛑 Received SIGTERM, shutting down gracefully...');
   server.kill('SIGTERM');
 });
 
 process.on('SIGINT', () => {
-  console.log('SIGINT received, shutting down...');
+  console.log('🛑 Received SIGINT, shutting down gracefully...');
   server.kill('SIGINT');
 });
