@@ -1,0 +1,1799 @@
+openapi: 3.0.3
+info:
+  title: Telegram Clone API
+  description: |
+    A comprehensive API for a Telegram clone with Signal Protocol encryption, real-time messaging, and advanced group features.
+    
+    ## Features
+    - 🔐 **End-to-End Encryption** using Signal Protocol
+    - 💬 **Real-time Messaging** with WebSocket support
+    - 👥 **Advanced Group Types** (Channels, Supergroups, Forums)
+    - 📁 **File Upload** and media sharing
+    - 🔒 **JWT Authentication** with refresh tokens
+    - 📱 **Cross-platform** support
+    
+    ## Authentication
+    Most endpoints require authentication using JWT Bearer tokens. Include the token in the Authorization header:
+    ```
+    Authorization: Bearer <your-access-token>
+    ```
+    
+    ## Rate Limiting
+    API requests are rate-limited to 100 requests per 15 minutes per IP address.
+    
+    ## WebSocket
+    Real-time messaging is available via WebSocket connection at `ws://localhost:3000`
+    
+  version: 1.0.0
+  contact:
+    name: API Support
+    email: support@telegramclone.com
+  license:
+    name: MIT
+    url: https://opensource.org/licenses/MIT
+
+servers:
+  - url: http://localhost:3000/api/v1
+    description: Development server
+  - url: https://api.telegramclone.com/api/v1
+    description: Production server
+
+tags:
+  - name: Authentication
+    description: User registration, login, and token management
+  - name: Users
+    description: User profile management and search
+  - name: Chats
+    description: Private chat management
+  - name: Messages
+    description: Message sending and retrieval
+  - name: Groups
+    description: Group chat management and operations
+  - name: Signal
+    description: Signal Protocol encryption keys
+  - name: Files
+    description: File upload and media management
+
+paths:
+  /auth/register:
+    post:
+      tags:
+        - Authentication
+      summary: Register new user
+      description: Create a new user account with Signal Protocol encryption keys
+      operationId: registerUser
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RegisterRequest'
+            examples:
+              basic:
+                summary: Basic registration
+                value:
+                  username: "john_doe"
+                  email: "john@example.com"
+                  password: "securepassword123"
+                  phoneNumber: "+1234567890"
+                  firstName: "John"
+                  lastName: "Doe"
+              minimal:
+                summary: Minimal registration
+                value:
+                  username: "jane_smith"
+                  email: "jane@example.com"
+                  password: "securepassword123"
+                  phoneNumber: "+1234567891"
+      responses:
+        '201':
+          description: User registered successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RegisterResponse'
+        '400':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationError'
+        '409':
+          description: User already exists
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConflictError'
+        '500':
+          description: Server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ServerError'
+
+  /auth/login:
+    post:
+      tags:
+        - Authentication
+      summary: Login user
+      description: Authenticate user and return access tokens
+      operationId: loginUser
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+            examples:
+              username:
+                summary: Login with username
+                value:
+                  identifier: "john_doe"
+                  password: "securepassword123"
+              email:
+                summary: Login with email
+                value:
+                  identifier: "john@example.com"
+                  password: "securepassword123"
+      responses:
+        '200':
+          description: Login successful
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LoginResponse'
+        '400':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationError'
+        '401':
+          description: Invalid credentials
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthError'
+        '500':
+          description: Server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ServerError'
+
+  /auth/refresh:
+    post:
+      tags:
+        - Authentication
+      summary: Refresh access token
+      description: Get new access token using refresh token
+      operationId: refreshToken
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RefreshRequest'
+      responses:
+        '200':
+          description: Token refreshed successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RefreshResponse'
+        '400':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationError'
+        '401':
+          description: Invalid refresh token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthError'
+
+  /auth/logout:
+    post:
+      tags:
+        - Authentication
+      summary: Logout user
+      description: Logout user and revoke refresh token
+      operationId: logoutUser
+      security:
+        - BearerAuth: []
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LogoutRequest'
+      responses:
+        '200':
+          description: Logout successful
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LogoutResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthError'
+
+  /users/profile:
+    get:
+      tags:
+        - Users
+      summary: Get user profile
+      description: Get current user's profile information
+      operationId: getProfile
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: User profile retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthError'
+    put:
+      tags:
+        - Users
+      summary: Update user profile
+      description: Update current user's profile information
+      operationId: updateProfile
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateProfileRequest'
+      responses:
+        '200':
+          description: Profile updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+        '400':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationError'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthError'
+
+  /users/search:
+    get:
+      tags:
+        - Users
+      summary: Search users
+      description: Search for users by username, email, or phone number
+      operationId: searchUsers
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: q
+          in: query
+          description: Search query
+          required: true
+          schema:
+            type: string
+            minLength: 2
+        - name: limit
+          in: query
+          description: Maximum number of results
+          schema:
+            type: integer
+            default: 20
+            maximum: 100
+        - name: offset
+          in: query
+          description: Number of results to skip
+          schema:
+            type: integer
+            default: 0
+      responses:
+        '200':
+          description: Search results
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserSearchResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthError'
+
+  /users/{userId}:
+    get:
+      tags:
+        - Users
+      summary: Get user by ID
+      description: Get user information by user ID
+      operationId: getUserById
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          description: User ID
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: User information retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthError'
+        '404':
+          description: User not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NotFoundError'
+
+  /chats:
+    get:
+      tags:
+        - Chats
+      summary: Get user's chats
+      description: Get all chats for the current user
+      operationId: getUserChats
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: limit
+          in: query
+          description: Maximum number of chats to return
+          schema:
+            type: integer
+            default: 50
+            maximum: 100
+        - name: offset
+          in: query
+          description: Number of chats to skip
+          schema:
+            type: integer
+            default: 0
+      responses:
+        '200':
+          description: Chats retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ChatListResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthError'
+
+  /chats/{chatId}:
+    get:
+      tags:
+        - Chats
+      summary: Get chat details
+      description: Get detailed information about a specific chat
+      operationId: getChatDetails
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: chatId
+          in: path
+          required: true
+          description: Chat ID
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Chat details retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Chat'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthError'
+        '404':
+          description: Chat not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NotFoundError'
+
+  /messages/{chatId}:
+    get:
+      tags:
+        - Messages
+      summary: Get chat messages
+      description: Get messages for a specific chat
+      operationId: getChatMessages
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: chatId
+          in: path
+          required: true
+          description: Chat ID
+          schema:
+            type: string
+            format: uuid
+        - name: limit
+          in: query
+          description: Maximum number of messages to return
+          schema:
+            type: integer
+            default: 50
+            maximum: 100
+        - name: offset
+          in: query
+          description: Number of messages to skip
+          schema:
+            type: integer
+            default: 0
+        - name: before
+          in: query
+          description: Get messages before this timestamp
+          schema:
+            type: string
+            format: date-time
+      responses:
+        '200':
+          description: Messages retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageListResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthError'
+        '404':
+          description: Chat not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NotFoundError'
+    post:
+      tags:
+        - Messages
+      summary: Send message
+      description: Send a message to a specific chat
+      operationId: sendMessage
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: chatId
+          in: path
+          required: true
+          description: Chat ID
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SendMessageRequest'
+      responses:
+        '201':
+          description: Message sent successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Message'
+        '400':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationError'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthError'
+        '404':
+          description: Chat not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NotFoundError'
+
+  /groups:
+    get:
+      tags:
+        - Groups
+      summary: Get user's groups
+      description: Get all groups the current user is a member of
+      operationId: getUserGroups
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: limit
+          in: query
+          description: Maximum number of groups to return
+          schema:
+            type: integer
+            default: 50
+            maximum: 100
+        - name: offset
+          in: query
+          description: Number of groups to skip
+          schema:
+            type: integer
+            default: 0
+      responses:
+        '200':
+          description: Groups retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GroupListResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthError'
+    post:
+      tags:
+        - Groups
+      summary: Create new group
+      description: Create a new group chat
+      operationId: createGroup
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateGroupRequest'
+      responses:
+        '201':
+          description: Group created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Group'
+        '400':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationError'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthError'
+
+  /groups/{groupId}:
+    get:
+      tags:
+        - Groups
+      summary: Get group details
+      description: Get detailed information about a specific group
+      operationId: getGroupDetails
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: groupId
+          in: path
+          required: true
+          description: Group ID
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Group details retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Group'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthError'
+        '404':
+          description: Group not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NotFoundError'
+    put:
+      tags:
+        - Groups
+      summary: Update group
+      description: Update group information (admin only)
+      operationId: updateGroup
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: groupId
+          in: path
+          required: true
+          description: Group ID
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateGroupRequest'
+      responses:
+        '200':
+          description: Group updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Group'
+        '400':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationError'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthError'
+        '403':
+          description: Forbidden - Admin access required
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ForbiddenError'
+        '404':
+          description: Group not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NotFoundError'
+
+  /groups/{groupId}/members:
+    get:
+      tags:
+        - Groups
+      summary: Get group members
+      description: Get all members of a specific group
+      operationId: getGroupMembers
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: groupId
+          in: path
+          required: true
+          description: Group ID
+          schema:
+            type: string
+            format: uuid
+        - name: limit
+          in: query
+          description: Maximum number of members to return
+          schema:
+            type: integer
+            default: 50
+            maximum: 100
+        - name: offset
+          in: query
+          description: Number of members to skip
+          schema:
+            type: integer
+            default: 0
+      responses:
+        '200':
+          description: Group members retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GroupMembersResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthError'
+        '404':
+          description: Group not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NotFoundError'
+    post:
+      tags:
+        - Groups
+      summary: Add member to group
+      description: Add a user to a group (admin only)
+      operationId: addGroupMember
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: groupId
+          in: path
+          required: true
+          description: Group ID
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AddMemberRequest'
+      responses:
+        '201':
+          description: Member added successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GroupMember'
+        '400':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationError'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthError'
+        '403':
+          description: Forbidden - Admin access required
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ForbiddenError'
+        '404':
+          description: Group or user not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NotFoundError'
+
+  /groups/{groupId}/members/{userId}:
+    delete:
+      tags:
+        - Groups
+      summary: Remove member from group
+      description: Remove a user from a group (admin only)
+      operationId: removeGroupMember
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: groupId
+          in: path
+          required: true
+          description: Group ID
+          schema:
+            type: string
+            format: uuid
+        - name: userId
+          in: path
+          required: true
+          description: User ID to remove
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Member removed successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthError'
+        '403':
+          description: Forbidden - Admin access required
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ForbiddenError'
+        '404':
+          description: Group or user not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NotFoundError'
+
+  /groups/{groupId}/convert:
+    post:
+      tags:
+        - Groups
+      summary: Convert group type
+      description: Convert group to different type (admin only)
+      operationId: convertGroup
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: groupId
+          in: path
+          required: true
+          description: Group ID
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ConvertGroupRequest'
+      responses:
+        '200':
+          description: Group converted successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Group'
+        '400':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationError'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthError'
+        '403':
+          description: Forbidden - Admin access required
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ForbiddenError'
+        '404':
+          description: Group not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NotFoundError'
+
+  /signal/keys:
+    get:
+      tags:
+        - Signal
+      summary: Get Signal keys
+      description: Get current user's Signal Protocol encryption keys
+      operationId: getSignalKeys
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Signal keys retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SignalKeys'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthError'
+
+  /files/upload:
+    post:
+      tags:
+        - Files
+      summary: Upload file
+      description: Upload a file for sharing in messages
+      operationId: uploadFile
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                file:
+                  type: string
+                  format: binary
+                  description: File to upload
+                chatId:
+                  type: string
+                  format: uuid
+                  description: Chat ID where file will be shared
+      responses:
+        '201':
+          description: File uploaded successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/File'
+        '400':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationError'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthError'
+        '413':
+          description: File too large
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FileTooLargeError'
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: JWT token obtained from login or registration
+
+  schemas:
+    # Authentication Schemas
+    RegisterRequest:
+      type: object
+      required:
+        - username
+        - email
+        - password
+        - phoneNumber
+      properties:
+        username:
+          type: string
+          minLength: 3
+          maxLength: 30
+          pattern: '^[a-zA-Z0-9_]+$'
+          description: Username (3-30 characters, alphanumeric and underscore only)
+        email:
+          type: string
+          format: email
+          description: Email address
+        password:
+          type: string
+          minLength: 8
+          description: Password (minimum 8 characters)
+        phoneNumber:
+          type: string
+          pattern: '^\+[1-9]\d{1,14}$'
+          description: Phone number in international format
+        firstName:
+          type: string
+          maxLength: 50
+          description: First name
+        lastName:
+          type: string
+          maxLength: 50
+          description: Last name
+        profilePicture:
+          type: string
+          format: uri
+          description: Profile picture URL
+
+    RegisterResponse:
+      type: object
+      properties:
+        accessToken:
+          type: string
+          description: JWT access token
+        refreshToken:
+          type: string
+          description: JWT refresh token
+        expiresIn:
+          type: integer
+          description: Token expiration time in seconds
+        user:
+          $ref: '#/components/schemas/User'
+        signalKeys:
+          $ref: '#/components/schemas/SignalKeys'
+
+    LoginRequest:
+      type: object
+      required:
+        - identifier
+        - password
+      properties:
+        identifier:
+          type: string
+          description: Username or email
+        password:
+          type: string
+          description: Password
+
+    LoginResponse:
+      type: object
+      properties:
+        accessToken:
+          type: string
+          description: JWT access token
+        refreshToken:
+          type: string
+          description: JWT refresh token
+        expiresIn:
+          type: integer
+          description: Token expiration time in seconds
+        user:
+          $ref: '#/components/schemas/User'
+        signalKeys:
+          $ref: '#/components/schemas/SignalKeys'
+
+    RefreshRequest:
+      type: object
+      required:
+        - refreshToken
+      properties:
+        refreshToken:
+          type: string
+          description: JWT refresh token
+
+    RefreshResponse:
+      type: object
+      properties:
+        accessToken:
+          type: string
+          description: New JWT access token
+        refreshToken:
+          type: string
+          description: New JWT refresh token
+        expiresIn:
+          type: integer
+          description: Token expiration time in seconds
+
+    LogoutRequest:
+      type: object
+      properties:
+        refreshToken:
+          type: string
+          description: Refresh token to revoke
+
+    LogoutResponse:
+      type: object
+      properties:
+        message:
+          type: string
+          example: "Logged out successfully"
+
+    # User Schemas
+    User:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: User ID
+        username:
+          type: string
+          description: Username
+        email:
+          type: string
+          format: email
+          description: Email address
+        phoneNumber:
+          type: string
+          description: Phone number
+        firstName:
+          type: string
+          description: First name
+        lastName:
+          type: string
+          description: Last name
+        bio:
+          type: string
+          description: User bio
+        profilePicture:
+          type: string
+          format: uri
+          description: Profile picture URL
+        isOnline:
+          type: boolean
+          description: Online status
+        lastSeen:
+          type: string
+          format: date-time
+          description: Last seen timestamp
+        createdAt:
+          type: string
+          format: date-time
+          description: Account creation timestamp
+        updatedAt:
+          type: string
+          format: date-time
+          description: Last update timestamp
+
+    UpdateProfileRequest:
+      type: object
+      properties:
+        firstName:
+          type: string
+          maxLength: 50
+          description: First name
+        lastName:
+          type: string
+          maxLength: 50
+          description: Last name
+        bio:
+          type: string
+          maxLength: 500
+          description: User bio
+        profilePicture:
+          type: string
+          format: uri
+          description: Profile picture URL
+
+    UserSearchResponse:
+      type: object
+      properties:
+        users:
+          type: array
+          items:
+            $ref: '#/components/schemas/User'
+        total:
+          type: integer
+          description: Total number of users found
+        limit:
+          type: integer
+          description: Number of users returned
+        offset:
+          type: integer
+          description: Number of users skipped
+
+    # Chat Schemas
+    Chat:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: Chat ID
+        type:
+          type: string
+          enum: [private, group, channel, broadcast]
+          description: Chat type
+        title:
+          type: string
+          description: Chat title
+        description:
+          type: string
+          description: Chat description
+        isGroup:
+          type: boolean
+          description: Whether this is a group chat
+        groupType:
+          type: string
+          enum: [basic, supergroup, megagroup, gigagroup, forum]
+          description: Group type (if applicable)
+        isChannel:
+          type: boolean
+          description: Whether this is a channel
+        isBroadcast:
+          type: boolean
+          description: Whether this is a broadcast channel
+        memberCount:
+          type: integer
+          description: Number of members
+        maxMembers:
+          type: integer
+          description: Maximum number of members
+        isPublic:
+          type: boolean
+          description: Whether the group/channel is public
+        username:
+          type: string
+          description: Public username
+        inviteLink:
+          type: string
+          format: uri
+          description: Invite link
+        creatorId:
+          type: string
+          format: uuid
+          description: Creator user ID
+        createdAt:
+          type: string
+          format: date-time
+          description: Creation timestamp
+        updatedAt:
+          type: string
+          format: date-time
+          description: Last update timestamp
+        lastMessage:
+          $ref: '#/components/schemas/Message'
+        participants:
+          type: array
+          items:
+            $ref: '#/components/schemas/ChatParticipant'
+
+    ChatParticipant:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: Participant ID
+        userId:
+          type: string
+          format: uuid
+          description: User ID
+        role:
+          type: string
+          enum: [member, admin, creator]
+          description: Participant role
+        joinedAt:
+          type: string
+          format: date-time
+          description: Join timestamp
+        user:
+          $ref: '#/components/schemas/User'
+
+    ChatListResponse:
+      type: object
+      properties:
+        chats:
+          type: array
+          items:
+            $ref: '#/components/schemas/Chat'
+        total:
+          type: integer
+          description: Total number of chats
+        limit:
+          type: integer
+          description: Number of chats returned
+        offset:
+          type: integer
+          description: Number of chats skipped
+
+    # Message Schemas
+    Message:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: Message ID
+        chatId:
+          type: string
+          format: uuid
+          description: Chat ID
+        senderId:
+          type: string
+          format: uuid
+          description: Sender user ID
+        content:
+          type: string
+          description: Message content (decrypted)
+        encryptedContent:
+          type: string
+          description: Encrypted message content
+        messageType:
+          type: string
+          enum: [text, image, video, audio, file, sticker, poll]
+          description: Message type
+        replyTo:
+          type: string
+          format: uuid
+          description: ID of message being replied to
+        forwardFrom:
+          type: string
+          format: uuid
+          description: ID of original message (if forwarded)
+        isEncrypted:
+          type: boolean
+          description: Whether message is encrypted
+        isEdited:
+          type: boolean
+          description: Whether message was edited
+        isDeleted:
+          type: boolean
+          description: Whether message was deleted
+        deliveryStatus:
+          type: string
+          enum: [sent, delivered, read]
+          description: Message delivery status
+        createdAt:
+          type: string
+          format: date-time
+          description: Message timestamp
+        updatedAt:
+          type: string
+          format: date-time
+          description: Last update timestamp
+        sender:
+          $ref: '#/components/schemas/User'
+        files:
+          type: array
+          items:
+            $ref: '#/components/schemas/File'
+
+    SendMessageRequest:
+      type: object
+      required:
+        - content
+      properties:
+        content:
+          type: string
+          description: Message content
+        messageType:
+          type: string
+          enum: [text, image, video, audio, file, sticker, poll]
+          default: text
+          description: Message type
+        replyTo:
+          type: string
+          format: uuid
+          description: ID of message to reply to
+        forwardFrom:
+          type: string
+          format: uuid
+          description: ID of message to forward
+        isEncrypted:
+          type: boolean
+          default: true
+          description: Whether to encrypt the message
+
+    MessageListResponse:
+      type: object
+      properties:
+        messages:
+          type: array
+          items:
+            $ref: '#/components/schemas/Message'
+        total:
+          type: integer
+          description: Total number of messages
+        limit:
+          type: integer
+          description: Number of messages returned
+        offset:
+          type: integer
+          description: Number of messages skipped
+
+    # Group Schemas
+    Group:
+      allOf:
+        - $ref: '#/components/schemas/Chat'
+        - type: object
+          properties:
+            groupType:
+              type: string
+              enum: [basic, supergroup, megagroup, gigagroup, forum]
+              description: Group type
+            isForum:
+              type: boolean
+              description: Whether this is a forum group
+            topics:
+              type: array
+              items:
+                $ref: '#/components/schemas/ForumTopic'
+
+    CreateGroupRequest:
+      type: object
+      required:
+        - title
+      properties:
+        title:
+          type: string
+          maxLength: 255
+          description: Group title
+        description:
+          type: string
+          description: Group description
+        groupType:
+          type: string
+          enum: [basic, supergroup, megagroup, gigagroup, forum]
+          default: basic
+          description: Group type
+        isPublic:
+          type: boolean
+          default: false
+          description: Whether group is public
+        username:
+          type: string
+          description: Public username (if public)
+        maxMembers:
+          type: integer
+          minimum: 1
+          maximum: 200000
+          description: Maximum number of members
+        memberIds:
+          type: array
+          items:
+            type: string
+            format: uuid
+          description: Initial member user IDs
+
+    UpdateGroupRequest:
+      type: object
+      properties:
+        title:
+          type: string
+          maxLength: 255
+          description: Group title
+        description:
+          type: string
+          description: Group description
+        isPublic:
+          type: boolean
+          description: Whether group is public
+        username:
+          type: string
+          description: Public username
+        maxMembers:
+          type: integer
+          minimum: 1
+          maximum: 200000
+          description: Maximum number of members
+
+    ConvertGroupRequest:
+      type: object
+      required:
+        - groupType
+      properties:
+        groupType:
+          type: string
+          enum: [supergroup, megagroup, gigagroup, forum]
+          description: New group type
+
+    GroupListResponse:
+      type: object
+      properties:
+        groups:
+          type: array
+          items:
+            $ref: '#/components/schemas/Group'
+        total:
+          type: integer
+          description: Total number of groups
+        limit:
+          type: integer
+          description: Number of groups returned
+        offset:
+          type: integer
+          description: Number of groups skipped
+
+    GroupMember:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: Member ID
+        userId:
+          type: string
+          format: uuid
+          description: User ID
+        role:
+          type: string
+          enum: [member, admin, creator]
+          description: Member role
+        joinedAt:
+          type: string
+          format: date-time
+          description: Join timestamp
+        user:
+          $ref: '#/components/schemas/User'
+
+    GroupMembersResponse:
+      type: object
+      properties:
+        members:
+          type: array
+          items:
+            $ref: '#/components/schemas/GroupMember'
+        total:
+          type: integer
+          description: Total number of members
+        limit:
+          type: integer
+          description: Number of members returned
+        offset:
+          type: integer
+          description: Number of members skipped
+
+    AddMemberRequest:
+      type: object
+      required:
+        - userId
+      properties:
+        userId:
+          type: string
+          format: uuid
+          description: User ID to add
+        role:
+          type: string
+          enum: [member, admin]
+          default: member
+          description: Member role
+
+    # Signal Protocol Schemas
+    SignalKeys:
+      type: object
+      properties:
+        identityKey:
+          type: object
+          properties:
+            publicKey:
+              type: string
+              description: Public identity key
+            privateKey:
+              type: string
+              description: Private identity key
+        preKeys:
+          type: array
+          items:
+            type: object
+            properties:
+              id:
+                type: integer
+                description: Prekey ID
+              publicKey:
+                type: string
+                description: Public prekey
+        signedPreKey:
+          type: object
+          properties:
+            id:
+              type: integer
+              description: Signed prekey ID
+            publicKey:
+              type: string
+              description: Public signed prekey
+            signature:
+              type: string
+              description: Signature
+        registrationId:
+          type: integer
+          description: Registration ID
+
+    # File Schemas
+    File:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: File ID
+        messageId:
+          type: string
+          format: uuid
+          description: Associated message ID
+        name:
+          type: string
+          description: File name
+        size:
+          type: integer
+          description: File size in bytes
+        mimeType:
+          type: string
+          description: MIME type
+        url:
+          type: string
+          format: uri
+          description: File download URL
+        thumbnailUrl:
+          type: string
+          format: uri
+          description: Thumbnail URL (if applicable)
+        uploadedBy:
+          type: string
+          format: uuid
+          description: Uploader user ID
+        createdAt:
+          type: string
+          format: date-time
+          description: Upload timestamp
+
+    # Forum Schemas
+    ForumTopic:
+      type: object
+      properties:
+        id:
+          type: integer
+          description: Topic ID
+        title:
+          type: string
+          description: Topic title
+        description:
+          type: string
+          description: Topic description
+        messageCount:
+          type: integer
+          description: Number of messages in topic
+        isPinned:
+          type: boolean
+          description: Whether topic is pinned
+        isClosed:
+          type: boolean
+          description: Whether topic is closed
+        createdBy:
+          type: string
+          format: uuid
+          description: Creator user ID
+        createdAt:
+          type: string
+          format: date-time
+          description: Creation timestamp
+
+    # Error Schemas
+    ValidationError:
+      type: object
+      properties:
+        error:
+          type: string
+          example: "Validation failed"
+        message:
+          type: string
+          example: "Invalid input data"
+        details:
+          type: array
+          items:
+            type: object
+            properties:
+              field:
+                type: string
+                description: Field name
+              message:
+                type: string
+                description: Error message
+        code:
+          type: string
+          example: "VALIDATION_ERROR"
+
+    AuthError:
+      type: object
+      properties:
+        error:
+          type: string
+          example: "Unauthorized"
+        message:
+          type: string
+          example: "Invalid or missing authentication token"
+        code:
+          type: string
+          example: "AUTH_ERROR"
+
+    ConflictError:
+      type: object
+      properties:
+        error:
+          type: string
+          example: "Conflict"
+        message:
+          type: string
+          example: "Resource already exists"
+        code:
+          type: string
+          example: "CONFLICT_ERROR"
+
+    NotFoundError:
+      type: object
+      properties:
+        error:
+          type: string
+          example: "Not Found"
+        message:
+          type: string
+          example: "Resource not found"
+        code:
+          type: string
+          example: "NOT_FOUND_ERROR"
+
+    ForbiddenError:
+      type: object
+      properties:
+        error:
+          type: string
+          example: "Forbidden"
+        message:
+          type: string
+          example: "Insufficient permissions"
+        code:
+          type: string
+          example: "FORBIDDEN_ERROR"
+
+    ServerError:
+      type: object
+      properties:
+        error:
+          type: string
+          example: "Internal Server Error"
+        message:
+          type: string
+          example: "An unexpected error occurred"
+        code:
+          type: string
+          example: "SERVER_ERROR"
+
+    FileTooLargeError:
+      type: object
+      properties:
+        error:
+          type: string
+          example: "File Too Large"
+        message:
+          type: string
+          example: "File size exceeds maximum allowed size"
+        code:
+          type: string
+          example: "FILE_TOO_LARGE_ERROR"
+
+    SuccessResponse:
+      type: object
+      properties:
+        message:
+          type: string
+          example: "Operation completed successfully"
+
+# WebSocket Events
+# The API also supports real-time communication via WebSocket at ws://localhost:3000
+# 
+# Client Events (sent to server):
+# - 'join': Join a chat room
+# - 'leave': Leave a chat room
+# - 'message': Send a message
+# - 'typing': Send typing indicator
+# - 'read': Mark messages as read
+#
+# Server Events (received from server):
+# - 'message': New message received
+# - 'typing': User typing indicator
+# - 'read': Messages read by user
+# - 'user_online': User came online
+# - 'user_offline': User went offline
+# - 'message_delivered': Message delivered to recipient
+# - 'message_read': Message read by recipient
