@@ -5,6 +5,85 @@ const { query } = require('../database/connection');
 
 const router = express.Router();
 
+
+// Create a new user (POST /api/v1/users)
+router.post("/", async (req, res) => {
+  try {
+    const { id, username, email, firstName, lastName, phoneNumber, profilePicture } = req.body;
+    
+    console.log("🔄 Creating new user:", { id, username, email });
+    
+    // Insert user into database
+    const result = await query(`
+      INSERT INTO users (id, username, email, first_name, last_name, phone_number, profile_picture, is_online, last_seen)
+      VALUES (?, ?, ?, ?, ?, ?, ?, true, CURRENT_TIMESTAMP)
+    `, [id, username, email, firstName, lastName, phoneNumber, profilePicture]);
+    
+    console.log("✅ User created successfully:", id);
+    
+    res.status(201).json({
+      success: true,
+      user: {
+        id: id,
+        username: username,
+        email: email,
+        firstName: firstName,
+        lastName: lastName,
+        phoneNumber: phoneNumber,
+        profilePicture: profilePicture,
+        isOnline: true,
+        lastSeen: new Date()
+      }
+    });
+  } catch (error) {
+    console.error("❌ Error creating user:", error);
+    res.status(500).json({
+      success: false,
+      error: "Failed to create user",
+      message: error.message
+    });
+  }
+});
+
+// Get all users (GET /api/v1/users)
+router.get("/", async (req, res) => {
+  try {
+    console.log("🔄 Fetching all users...");
+    
+    const result = await query(`
+      SELECT id, username, email, first_name, last_name, phone_number, profile_picture, is_online, last_seen, created_at
+      FROM users
+      ORDER BY created_at DESC
+    `);
+    
+    const users = result.rows.map(row => ({
+      id: row.id,
+      username: row.username,
+      email: row.email,
+      firstName: row.first_name,
+      lastName: row.last_name,
+      phoneNumber: row.phone_number,
+      profilePicture: row.profile_picture,
+      isOnline: row.is_online,
+      lastSeen: row.last_seen,
+      createdAt: row.created_at
+    }));
+    
+    console.log("✅ Fetched users:", users.length);
+    
+    res.json({
+      success: true,
+      users: users
+    });
+  } catch (error) {
+    console.error("❌ Error fetching users:", error);
+    res.status(500).json({
+      success: false,
+      error: "Failed to fetch users",
+      message: error.message
+    });
+  }
+});
 // Get user profile
 router.get('/profile', authenticateToken, async (req, res) => {
   try {
