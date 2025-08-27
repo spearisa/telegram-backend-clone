@@ -12,3 +12,4 @@ require('./setup-database.js').setupDatabase()
     console.error('❌ Setup failed:', error);
     process.exit(1);
   });
+// Force Railway rebuild - Tue Aug 26 22:17:13 -05 2025
