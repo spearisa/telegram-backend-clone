@@ -74,44 +74,13 @@ app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 app.use('/uploads', express.static('uploads'));
 
 // Health check endpoint
-// Health check endpoint
-app.get("/health", async (req, res) => {
-  try {
-    let databaseStatus = "Unknown";
-    let error = "";
-    
-    // Check database connection
-    if (process.env.DB_TYPE === "postgresql") {
-      try {
-        const { query } = require("./database/connection");
-        await query("SELECT 1 as test");
-        databaseStatus = "PostgreSQL (connected)";
-      } catch (dbError) {
-        databaseStatus = "PostgreSQL (connection error)";
-        error = dbError.message;
-      }
-    } else {
-      databaseStatus = "SQLite (connected)";
-    }
-    
-    res.status(200).json({
-      status: "OK",
-      timestamp: new Date().toISOString(),
-      uptime: process.uptime(),
-      environment: process.env.NODE_ENV,
-      database: databaseStatus,
-      error: error
-    });
-  } catch (error) {
-    res.status(200).json({
-      status: "OK",
-      timestamp: new Date().toISOString(),
-      uptime: process.uptime(),
-      environment: process.env.NODE_ENV,
-      database: "Unknown",
-      error: error.message
-    });
-  }
+app.get('/health', (req, res) => {
+  res.status(200).json({
+    status: 'OK',
+    timestamp: new Date().toISOString(),
+    uptime: process.uptime(),
+    environment: process.env.NODE_ENV
+  });
 });
 
 // API routes
@@ -178,4 +147,3 @@ process.on('SIGINT', () => {
 });
 
 startServer();
-// FORCE RAILWAY DEPLOYMENT - Wed Aug 27 15:37:49 -05 2025

@@ -1,10 +1,10 @@
 {
-  "name": "telegram-backend-clone",
+  "name": "telegram-clone-backend",
   "version": "1.0.0",
   "description": "Backend server for Telegram clone with real-time messaging",
   "main": "src/index.js",
   "scripts": {
-    "start": "node server.js",
+    "start": "node start.js",
     "dev": "nodemon src/index.js",
     "test": "jest",
     "migrate": "node src/database/migrate.js",
@@ -28,7 +28,6 @@
     "express": "^4.18.2",
     "express-rate-limit": "^6.10.0",
     "express-validator": "^7.0.1",
-    "firebase-admin": "^13.4.0",
     "helmet": "^7.0.0",
     "jsonwebtoken": "^9.0.2",
     "morgan": "^1.10.0",

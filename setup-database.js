@@ -4,12 +4,6 @@ require('dotenv').config();
 async function setupDatabase() {
   console.log('🔄 Setting up PostgreSQL database...');
   
-  // Debug environment variables
-  console.log('🔍 Environment variables in setup script:');
-  console.log('DATABASE_URL:', process.env.DATABASE_URL ? 'SET' : 'NOT SET');
-  console.log('NODE_ENV:', process.env.NODE_ENV);
-  console.log('Connection string:', process.env.DATABASE_URL);
-  
   // Create connection pool
   const pool = new Pool({
     connectionString: process.env.DATABASE_URL,

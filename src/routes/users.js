@@ -1,12 +1,12 @@
 const express = require('express');
 const { body, validationResult } = require('express-validator');
-const { verifyFirebaseToken } = require('../middleware/auth');
+const { authenticateToken } = require('../middleware/auth');
 const { query } = require('../database/connection');
 
 const router = express.Router();
 
 // Get user profile
-router.get('/profile', verifyFirebaseToken, async (req, res) => {
+router.get('/profile', authenticateToken, async (req, res) => {
   try {
     const userResult = await query(
       'SELECT id, username, email, phone_number, first_name, last_name, bio, profile_picture, is_online, last_seen, created_at FROM users WHERE id = ?',
@@ -50,7 +50,7 @@ router.put('/profile', [
     .optional()
     .isURL()
     .withMessage('Profile picture must be a valid URL')
-], verifyFirebaseToken, async (req, res) => {
+], authenticateToken, async (req, res) => {
   try {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
@@ -93,7 +93,7 @@ router.put('/profile', [
 });
 
 // Get user by ID
-router.get('/:userId', verifyFirebaseToken, async (req, res) => {
+router.get('/:userId', authenticateToken, async (req, res) => {
   try {
     const { userId } = req.params;
 
@@ -122,7 +122,7 @@ router.get('/:userId', verifyFirebaseToken, async (req, res) => {
 });
 
 // Search users (this should be before the /:userId route)
-router.get('/search', verifyFirebaseToken, async (req, res) => {
+router.get('/search', authenticateToken, async (req, res) => {
   try {
     const { q, limit = 20 } = req.query;
     
@@ -159,7 +159,7 @@ router.get('/search', verifyFirebaseToken, async (req, res) => {
 });
 
 // Get user contacts
-router.get('/contacts', verifyFirebaseToken, async (req, res) => {
+router.get('/contacts', authenticateToken, async (req, res) => {
   try {
     const contactsResult = await query(
       `SELECT u.id, u.username, u.first_name, u.last_name, u.bio, u.profile_picture, u.is_online, u.last_seen, u.created_at
@@ -184,7 +184,7 @@ router.get('/contacts', verifyFirebaseToken, async (req, res) => {
 });
 
 // Add contact
-router.post('/contacts/:contactId', verifyFirebaseToken, async (req, res) => {
+router.post('/contacts/:contactId', authenticateToken, async (req, res) => {
   try {
     const { contactId } = req.params;
 
@@ -237,7 +237,7 @@ router.post('/contacts/:contactId', verifyFirebaseToken, async (req, res) => {
 });
 
 // Remove contact
-router.delete('/contacts/:contactId', verifyFirebaseToken, async (req, res) => {
+router.delete('/contacts/:contactId', authenticateToken, async (req, res) => {
   try {
     const { contactId } = req.params;
 
@@ -261,7 +261,7 @@ router.delete('/contacts/:contactId', verifyFirebaseToken, async (req, res) => {
 });
 
 // Block user
-router.post('/block/:userId', verifyFirebaseToken, async (req, res) => {
+router.post('/block/:userId', authenticateToken, async (req, res) => {
   try {
     const { userId } = req.params;
 
@@ -314,7 +314,7 @@ router.post('/block/:userId', verifyFirebaseToken, async (req, res) => {
 });
 
 // Unblock user
-router.delete('/block/:userId', verifyFirebaseToken, async (req, res) => {
+router.delete('/block/:userId', authenticateToken, async (req, res) => {
   try {
     const { userId } = req.params;
 

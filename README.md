@@ -233,5 +233,3 @@ npm run format
 ## 📝 License
 
 MIT License - see LICENSE file for details
-# Force Railway redeploy - Tue Aug 26 22:05:41 -05 2025
-# Railway deployment trigger - Wed Aug 27 15:09:25 -05 2025
