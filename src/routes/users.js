@@ -173,6 +173,53 @@ router.put('/profile', [
 
 // Get user by ID
 router.get('/:userId', authenticateToken, async (req, res) => {
+
+// Update user by ID (PUT /api/v1/users/:userId)
+router.put("/:userId", authenticateToken, async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const updates = req.body;
+    
+    console.log("🔄 Updating user:", userId, "with updates:", updates);
+    
+    // Update user in database
+    const result = await query(`
+      UPDATE users SET 
+        username = COALESCE(?, username),
+        email = COALESCE(?, email),
+        first_name = COALESCE(?, first_name),
+        last_name = COALESCE(?, last_name),
+        phone_number = COALESCE(?, phone_number),
+        profile_picture = COALESCE(?, profile_picture),
+        bio = COALESCE(?, bio),
+        updated_at = CURRENT_TIMESTAMP
+      WHERE id = ?
+    `, [updates.username, updates.email, updates.firstName, updates.lastName, updates.phoneNumber, updates.profilePicture, updates.bio, userId]);
+    
+    if (result.rowCount === 0) {
+      return res.status(404).json({
+        success: false,
+        error: "User not found",
+        message: "User with specified ID not found"
+      });
+    }
+    
+    console.log("✅ User updated successfully:", userId);
+    
+    res.json({
+      success: true,
+      message: "User updated successfully",
+      userId: userId
+    });
+  } catch (error) {
+    console.error("❌ Error updating user:", error);
+    res.status(500).json({
+      success: false,
+      error: "Failed to update user",
+      message: error.message
+    });
+  }
+});
   try {
     const { userId } = req.params;
 
