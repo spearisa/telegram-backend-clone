@@ -112,7 +112,7 @@ app.get("/health", async (req, res) => {
       error: error.message
     });
   }
-});});
+});
 
 // API routes
 app.use('/api/v1/auth', authRoutes);
