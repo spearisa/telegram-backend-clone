@@ -1,5 +1,5 @@
 {
-  "name": "telegram-clone-backend",
+  "name": "telegram-backend-clone",
   "version": "1.0.0",
   "description": "Backend server for Telegram clone with real-time messaging",
   "main": "src/index.js",
