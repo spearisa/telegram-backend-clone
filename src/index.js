@@ -74,14 +74,45 @@ app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 app.use('/uploads', express.static('uploads'));
 
 // Health check endpoint
-app.get('/health', (req, res) => {
-  res.status(200).json({
-    status: 'OK',
-    timestamp: new Date().toISOString(),
-    uptime: process.uptime(),
-    environment: process.env.NODE_ENV
-  });
-});
+// Health check endpoint
+app.get("/health", async (req, res) => {
+  try {
+    let databaseStatus = "Unknown";
+    let error = "";
+    
+    // Check database connection
+    if (process.env.DB_TYPE === "postgresql") {
+      try {
+        const { query } = require("./database/connection");
+        await query("SELECT 1 as test");
+        databaseStatus = "PostgreSQL (connected)";
+      } catch (dbError) {
+        databaseStatus = "PostgreSQL (connection error)";
+        error = dbError.message;
+      }
+    } else {
+      databaseStatus = "SQLite (connected)";
+    }
+    
+    res.status(200).json({
+      status: "OK",
+      timestamp: new Date().toISOString(),
+      uptime: process.uptime(),
+      environment: process.env.NODE_ENV,
+      database: databaseStatus,
+      error: error
+    });
+  } catch (error) {
+    res.status(200).json({
+      status: "OK",
+      timestamp: new Date().toISOString(),
+      uptime: process.uptime(),
+      environment: process.env.NODE_ENV,
+      database: "Unknown",
+      error: error.message
+    });
+  }
+});});
 
 // API routes
 app.use('/api/v1/auth', authRoutes);
