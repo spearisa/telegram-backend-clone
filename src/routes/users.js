@@ -476,6 +476,21 @@ router.put("/:userId", authenticateToken, async (req, res) => {
     
     console.log("🔄 Updating user:", userId, "with updates:", updates);
     
+    // Check if userId is a valid UUID
+    const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(userId);
+    
+    let whereClause, queryParams;
+    
+    if (isUUID) {
+      // Use UUID for lookup
+      whereClause = 'WHERE id = $8';
+      queryParams = [updates.username, updates.email, updates.firstName, updates.lastName, updates.phoneNumber, updates.profilePicture, updates.bio, userId];
+    } else {
+      // Use email for lookup
+      whereClause = 'WHERE email = $8';
+      queryParams = [updates.username, updates.email, updates.firstName, updates.lastName, updates.phoneNumber, updates.profilePicture, updates.bio, userId];
+    }
+    
     // Update user in database
     const result = await query(`
       UPDATE users SET 
@@ -487,14 +502,14 @@ router.put("/:userId", authenticateToken, async (req, res) => {
         profile_picture = COALESCE($6, profile_picture),
         bio = COALESCE($7, bio),
         updated_at = CURRENT_TIMESTAMP
-      WHERE id = $8
-    `, [updates.username, updates.email, updates.firstName, updates.lastName, updates.phoneNumber, updates.profilePicture, updates.bio, userId]);
+      ${whereClause}
+    `, queryParams);
     
     if (result.rowCount === 0) {
       return res.status(404).json({
         success: false,
         error: "User not found",
-        message: "User with specified ID not found"
+        message: "User with specified ID/email not found"
       });
     }
     

@@ -321,9 +321,9 @@ router.get('/following', authenticateToken, async (req, res) => {
         uf.created_at as followed_at
        FROM users u
        INNER JOIN user_follows uf ON u.id = uf.following_id
-       WHERE uf.follower_id = ?
+       WHERE uf.follower_id = $1
        ORDER BY uf.created_at DESC
-       LIMIT $1 OFFSET $2`,
+       LIMIT $2 OFFSET $3`,
       [userId, parseInt(limit), parseInt(offset)]
     );
 
@@ -340,6 +340,82 @@ router.get('/following', authenticateToken, async (req, res) => {
       error: 'Failed to get following',
       message: 'An error occurred while fetching following list',
       code: 'FOLLOWING_ERROR'
+    });
+  }
+});
+
+// Alternative endpoint for nearby users (for better API consistency)
+router.get('/users', authenticateToken, async (req, res) => {
+  try {
+    const { latitude, longitude, radius = 10 } = req.query;
+    const userId = req.user.id;
+
+    console.log('🔄 Getting nearby users via /users endpoint:', { latitude, longitude, radius, userId });
+
+    // Validate radius parameter
+    const radiusNum = parseFloat(radius);
+    if (isNaN(radiusNum) || radiusNum <= 0 || radiusNum > 100) {
+      return res.status(400).json({
+        error: 'Invalid radius parameter',
+        message: 'Radius must be a positive number between 0.1 and 100 km',
+        code: 'INVALID_RADIUS'
+      });
+    }
+
+    // Check if user has a location
+    const userLocation = await query(
+      'SELECT latitude, longitude FROM user_locations WHERE user_id = $1',
+      [userId]
+    );
+
+    if (userLocation.rows.length === 0) {
+      return res.status(400).json({
+        error: 'No location found',
+        message: 'Please update your location first',
+        code: 'NO_LOCATION'
+      });
+    }
+
+    // Get nearby users
+    const nearbyUsers = await query(
+      `SELECT 
+        u.id, u.username, u.first_name, u.last_name, u.bio, u.profile_picture,
+        u.is_online, u.last_seen, u.created_at,
+        ul.latitude, ul.longitude, ul.accuracy,
+        ul.last_updated as location_updated
+       FROM users u
+       INNER JOIN user_locations ul ON u.id = ul.user_id
+       WHERE u.id != $1
+       ORDER BY ul.last_updated DESC`,
+      [userId]
+    );
+
+    // Filter users within radius
+    const userLat = parseFloat(latitude || userLocation.rows[0].latitude);
+    const userLon = parseFloat(longitude || userLocation.rows[0].longitude);
+    
+    const usersWithinRadius = nearbyUsers.rows.filter(user => {
+      const distance = calculateDistance(
+        userLat, userLon,
+        parseFloat(user.latitude), parseFloat(user.longitude)
+      );
+      return distance <= radiusNum;
+    });
+
+    console.log('✅ Found nearby users:', usersWithinRadius.length);
+    res.json({
+      users: usersWithinRadius,
+      total: usersWithinRadius.length,
+      radius: radiusNum,
+      userLocation: { latitude: userLat, longitude: userLon }
+    });
+
+  } catch (error) {
+    console.error('Get nearby users error:', error);
+    res.status(500).json({
+      error: 'Failed to get nearby users',
+      message: 'An error occurred while fetching nearby users',
+      code: 'NEARBY_USERS_ERROR'
     });
   }
 });

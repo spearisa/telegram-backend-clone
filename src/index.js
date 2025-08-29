@@ -90,6 +90,15 @@ app.get('/health', (req, res) => {
   });
 });
 
+// WebSocket status endpoint
+app.get('/ws/status', (req, res) => {
+  res.status(200).json({
+    status: 'WebSocket server running',
+    timestamp: new Date().toISOString(),
+    connections: io.engine.clientsCount || 0
+  });
+});
+
 // API routes
 app.use('/api/v1/auth', authRoutes);
 app.use('/api/v1/simple-auth', simpleAuthRoutes);
