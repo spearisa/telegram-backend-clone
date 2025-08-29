@@ -106,6 +106,23 @@ router.post('/:chatId', [
     const { chatId } = req.params;
     const { content, type = 'text' } = req.body;
 
+    console.log('🔄 Sending message to chat:', chatId);
+
+    // Check if chat exists
+    const chatCheck = await query(
+      'SELECT id FROM chats WHERE id = $1',
+      [chatId]
+    );
+
+    if (chatCheck.rows.length === 0) {
+      console.log('⚠️ Chat not found:', chatId);
+      return res.status(404).json({
+        error: 'Chat not found',
+        message: 'The specified chat does not exist',
+        code: 'CHAT_NOT_FOUND'
+      });
+    }
+
     // Check if user is participant in this chat
     const participantCheck = await query(
       'SELECT id FROM chat_participants WHERE chat_id = $1 AND user_id = $2',
@@ -113,6 +130,7 @@ router.post('/:chatId', [
     );
 
     if (participantCheck.rows.length === 0) {
+      console.log('⚠️ User not participant in chat:', chatId);
       return res.status(403).json({
         error: 'Access denied',
         message: 'You are not a participant in this chat',
@@ -149,6 +167,8 @@ router.post('/:chatId', [
       createdAt: messageResult.rows[0].created_at,
       updatedAt: messageResult.rows[0].updated_at
     };
+
+    console.log('✅ Message sent successfully:', messageId);
 
     res.status(201).json({
       success: true,

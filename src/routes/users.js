@@ -12,18 +12,26 @@ router.post("/", async (req, res) => {
     
     console.log("🔄 Creating new user:", { id, username, email });
     
+    // Generate a proper UUID if the provided ID is not a valid UUID
+    let userId = id;
+    if (id && !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id)) {
+      const { v4: uuidv4 } = require('uuid');
+      userId = uuidv4();
+      console.log("🔄 Generated UUID for user:", userId);
+    }
+    
     // Insert user into database
     const result = await query(`
       INSERT INTO users (id, username, email, first_name, last_name, phone_number, profile_picture, is_online, last_seen)
               VALUES ($1, $2, $3, $4, $5, $6, $7, true, CURRENT_TIMESTAMP)
-    `, [id, username, email, firstName, lastName, phoneNumber, profilePicture]);
+    `, [userId, username, email, firstName, lastName, phoneNumber, profilePicture]);
     
-    console.log("✅ User created successfully:", id);
+    console.log("✅ User created successfully:", userId);
     
     res.status(201).json({
       success: true,
       user: {
-        id: id,
+        id: userId,
         username: username,
         email: email,
         firstName: firstName,
@@ -31,7 +39,7 @@ router.post("/", async (req, res) => {
         phoneNumber: phoneNumber,
         profilePicture: profilePicture,
         isOnline: true,
-        lastSeen: new Date()
+        lastSeen: new Date().toISOString()
       }
     });
   } catch (error) {
