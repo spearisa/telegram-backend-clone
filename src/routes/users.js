@@ -409,6 +409,16 @@ router.get('/:userId', authenticateToken, async (req, res) => {
   try {
     const { userId } = req.params;
 
+    // Check if userId is a valid UUID
+    if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(userId)) {
+      console.log('⚠️ Invalid UUID format for user lookup:', userId);
+      return res.status(400).json({
+        error: 'Invalid user ID format',
+        message: 'User ID must be a valid UUID format',
+        code: 'INVALID_UUID_FORMAT'
+      });
+    }
+
     const userResult = await query(
       'SELECT id, username, first_name, last_name, bio, profile_picture, is_online, last_seen, created_at FROM users WHERE id = $1',
       [userId]
