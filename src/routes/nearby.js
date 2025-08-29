@@ -57,7 +57,7 @@ router.post('/location', [
       await query(
         `UPDATE user_locations 
          SET latitude = $1, longitude = $2, accuracy = $3, last_updated = CURRENT_TIMESTAMP 
-         WHERE user_id = $1`,
+         WHERE user_id = $4`,
         [latitude, longitude, accuracy, userId]
       );
     } else {
