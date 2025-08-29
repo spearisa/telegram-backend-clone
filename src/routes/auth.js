@@ -18,37 +18,53 @@ const router = express.Router();
 router.post('/firebase-login', async (req, res) => {
   try {
     const { firebaseIdToken, userData } = req.body;
+    
+    console.log('🔄 Firebase login attempt:', { 
+      hasToken: !!firebaseIdToken, 
+      userData: userData ? { uid: userData.uid, email: userData.email } : null 
+    });
 
-    if (!firebaseIdToken) {
+    // Validate input
+    if (!firebaseIdToken || !userData) {
       return res.status(400).json({
-        error: 'Firebase ID token required',
-        message: 'Please provide a valid Firebase ID token',
-        code: 'MISSING_FIREBASE_TOKEN'
+        error: 'Missing required data',
+        message: 'Firebase ID token and user data are required',
+        code: 'MISSING_DATA'
       });
     }
 
-    // For now, we'll accept the Firebase token and create/update user
-    // In production, you should verify the Firebase token with Firebase Admin SDK
+    // For now, we'll trust the Firebase token from the frontend
+    // In production, you should verify it with Firebase Admin SDK
+    // const decodedToken = await admin.auth().verifyIdToken(firebaseIdToken);
     
-    // Generate a proper UUID for the user instead of using Firebase UID directly
-    const userId = uuidv4();
-    const email = userData?.email || `user_${Date.now()}@temp.com`; // Ensure email is never null
-    const username = userData?.displayName || userData?.email?.split('@')[0] || `user_${Date.now()}`;
-    const firstName = userData?.firstName || userData?.displayName?.split(' ')[0] || '';
-    const lastName = userData?.lastName || userData?.displayName?.split(' ').slice(1).join(' ') || '';
-    const profilePicture = userData?.photoURL || null;
+    const { uid, email, displayName, photoURL } = userData;
     
-    // Generate a random password hash for Firebase users (they don't use passwords)
+    // Ensure we have required data
+    if (!uid || !email) {
+      return res.status(400).json({
+        error: 'Invalid user data',
+        message: 'User ID and email are required',
+        code: 'INVALID_USER_DATA'
+      });
+    }
+
+    // Generate username from display name or email
+    const username = displayName || email.split('@')[0];
+    const firstName = displayName ? displayName.split(' ')[0] : username;
+    const lastName = displayName ? displayName.split(' ').slice(1).join(' ') : '';
+    const profilePicture = photoURL || null;
+
+    // Generate a secure password hash for Firebase users (they don't use passwords)
     const tempPassword = `firebase_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
     const passwordHash = await bcrypt.hash(tempPassword, 10);
 
-    // Check if user already exists by email
+    // Check if user already exists
     const existingUser = await query(
-      'SELECT id, username, email, first_name, last_name, profile_picture FROM users WHERE email = $1',
-      [email]
+      'SELECT id FROM users WHERE email = $1 OR id = $2',
+      [email, uid]
     );
 
-    let finalUserId = userId;
+    let finalUserId = uid;
 
     if (existingUser.rows.length > 0) {
       // User exists, update their information
@@ -107,6 +123,8 @@ router.post('/firebase-login', async (req, res) => {
       'SELECT id, username, email, first_name, last_name, bio, profile_picture, created_at FROM users WHERE id = $1',
       [finalUserId]
     );
+
+    console.log('✅ Firebase login successful for user:', finalUserId);
 
     res.json({
       success: true,

@@ -429,7 +429,9 @@ router.get('/:userId', authenticateToken, async (req, res) => {
 
       if (fallbackResult.rows.length > 0) {
         console.log('✅ Found user by fallback lookup:', userId);
-        return res.json(fallbackResult.rows[0]);
+        return res.json({
+          user: fallbackResult.rows[0]
+        });
       }
 
       return res.status(400).json({
@@ -452,7 +454,10 @@ router.get('/:userId', authenticateToken, async (req, res) => {
       });
     }
 
-    res.json(userResult.rows[0]);
+    // Return user data in the format expected by frontend
+    res.json({
+      user: userResult.rows[0]
+    });
   } catch (error) {
     console.error('Get user error:', error);
     res.status(500).json({
