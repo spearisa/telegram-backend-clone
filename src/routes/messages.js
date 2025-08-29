@@ -11,6 +11,24 @@ router.get('/:chatId', authenticateToken, async (req, res) => {
   try {
     const { chatId } = req.params;
     const { limit = 50, offset = 0 } = req.query;
+    
+    console.log('🔄 Fetching messages for chat:', chatId);
+    
+    // First check if the chat exists
+    const chatCheck = await query('SELECT id FROM chats WHERE id = $1', [chatId]);
+    if (chatCheck.rows.length === 0) {
+      console.log('⚠️ Chat not found, returning empty messages');
+      return res.json({ 
+        success: true, 
+        messages: [], 
+        pagination: { 
+          total: 0, 
+          limit: parseInt(limit), 
+          offset: parseInt(offset), 
+          hasMore: false 
+        } 
+      });
+    }
 
     // Check if user is participant in this chat
     const participantCheck = await query(
@@ -19,10 +37,16 @@ router.get('/:chatId', authenticateToken, async (req, res) => {
     );
 
     if (participantCheck.rows.length === 0) {
-      return res.status(403).json({
-        error: 'Access denied',
-        message: 'You are not a participant in this chat',
-        code: 'ACCESS_DENIED'
+      console.log('⚠️ User not participant in chat, returning empty messages');
+      return res.json({ 
+        success: true, 
+        messages: [], 
+        pagination: { 
+          total: 0, 
+          limit: parseInt(limit), 
+          offset: parseInt(offset), 
+          hasMore: false 
+        } 
       });
     }
 
@@ -40,7 +64,7 @@ router.get('/:chatId', authenticateToken, async (req, res) => {
     const messages = messagesResult.rows.map(row => ({
       id: row.id,
       content: row.content,
-              type: row.message_type,
+      type: row.message_type,
       senderId: row.sender_id,
       sender: {
         id: row.sender_id,
@@ -59,6 +83,7 @@ router.get('/:chatId', authenticateToken, async (req, res) => {
       [chatId]
     );
 
+    console.log('✅ Found messages:', messages.length);
     res.json({
       success: true,
       messages: messages.reverse(), // Return in chronological order
@@ -72,6 +97,20 @@ router.get('/:chatId', authenticateToken, async (req, res) => {
 
   } catch (error) {
     console.error('Get messages error:', error);
+    // Handle UUID validation errors gracefully
+    if (error.message && error.message.includes('invalid input syntax for type uuid')) {
+      console.log('⚠️ Invalid UUID format, returning empty messages');
+      return res.json({ 
+        success: true, 
+        messages: [], 
+        pagination: { 
+          total: 0, 
+          limit: parseInt(req.query.limit || 50), 
+          offset: parseInt(req.query.offset || 0), 
+          hasMore: false 
+        } 
+      });
+    }
     res.status(500).json({
       error: 'Failed to fetch messages',
       message: 'An error occurred while fetching messages',
