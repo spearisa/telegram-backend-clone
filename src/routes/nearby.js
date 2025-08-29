@@ -86,99 +86,74 @@ router.post('/location', [
 });
 
 // Get nearby users within specified radius (default 10km)
-router.get('/nearby', [
-  body('latitude')
-    .optional()
-    .isFloat({ min: -90, max: 90 })
-    .withMessage('Latitude must be between -90 and 90'),
-  body('longitude')
-    .optional()
-    .isFloat({ min: -180, max: 180 })
-    .withMessage('Longitude must be between -180 and 180'),
-  body('radius')
-    .optional()
-    .isFloat({ min: 0.1, max: 100 })
-    .withMessage('Radius must be between 0.1 and 100 kilometers')
-], authenticateToken, async (req, res) => {
+router.get('/nearby', authenticateToken, async (req, res) => {
   try {
     const { latitude, longitude, radius = 10 } = req.query;
     const userId = req.user.id;
 
-    // If no coordinates provided, use current user's location
-    let userLat, userLon;
-    if (latitude && longitude) {
-      userLat = parseFloat(latitude);
-      userLon = parseFloat(longitude);
-    } else {
-      // Get current user's location
-      const userLocation = await query(
-        'SELECT latitude, longitude FROM user_locations WHERE user_id = $1',
-        [userId]
-      );
+    console.log('🔄 Getting nearby users:', { latitude, longitude, radius, userId });
 
-      if (userLocation.rows.length === 0) {
-        return res.status(400).json({
-          error: 'Location required',
-          message: 'Please provide location coordinates or update your location first',
-          code: 'LOCATION_REQUIRED'
-        });
-      }
-
-      userLat = userLocation.rows[0].latitude;
-      userLon = userLocation.rows[0].longitude;
+    // Validate radius parameter
+    const radiusNum = parseFloat(radius);
+    if (isNaN(radiusNum) || radiusNum <= 0 || radiusNum > 100) {
+      return res.status(400).json({
+        error: 'Invalid radius parameter',
+        message: 'Radius must be a positive number between 0.1 and 100 km',
+        code: 'INVALID_RADIUS'
+      });
     }
 
-    // Get all users with locations (excluding current user)
-    const nearbyUsers = await query(
-      `SELECT 
-        u.id, u.username, u.first_name, u.last_name, u.bio, u.profile_picture,
-        u.is_online, u.last_seen, u.created_at,
-        ul.latitude, ul.longitude, ul.accuracy, ul.last_updated
-       FROM users u
-       INNER JOIN user_locations ul ON u.id = ul.user_id
-       WHERE u.id != $1`,
+    // Get user's current location
+    const userLocation = await query(
+      'SELECT latitude, longitude FROM user_locations WHERE user_id = $1',
       [userId]
     );
+
+    if (userLocation.rows.length === 0) {
+      return res.status(400).json({
+        error: 'No location found',
+        message: 'Please update your location first',
+        code: 'NO_LOCATION'
+      });
+    }
+
+    const userLat = userLocation.rows[0].latitude;
+    const userLon = userLocation.rows[0].longitude;
+
+    // Get all users with locations
+    const nearbyUsers = await query(`
+      SELECT 
+        u.id, u.username, u.first_name, u.last_name, u.profile_picture,
+        ul.latitude, ul.longitude,
+        ul.last_updated
+      FROM users u
+      INNER JOIN user_locations ul ON u.id = ul.user_id
+      WHERE u.id != $1
+    `, [userId]);
 
     // Calculate distances and filter by radius
     const usersInRadius = nearbyUsers.rows
       .map(user => {
-        const distance = calculateDistance(
-          userLat, userLon, 
-          user.latitude, user.longitude
-        );
+        const distance = calculateDistance(userLat, userLon, user.latitude, user.longitude);
         return {
           ...user,
           distance: Math.round(distance * 100) / 100 // Round to 2 decimal places
         };
       })
-      .filter(user => user.distance <= radius)
+      .filter(user => user.distance <= radiusNum)
       .sort((a, b) => a.distance - b.distance);
 
-    // Check follow status for each user
-    const usersWithFollowStatus = await Promise.all(
-      usersInRadius.map(async (user) => {
-        const followStatus = await query(
-          'SELECT id FROM user_follows WHERE follower_id = $1 AND following_id = $2',
-          [userId, user.id]
-        );
-
-        return {
-          ...user,
-          isFollowing: followStatus.rows.length > 0
-        };
-      })
-    );
+    console.log('✅ Found nearby users:', usersInRadius.length);
 
     res.json({
+      success: true,
       users: usersInRadius,
-      total: usersInRadius.length,
-      radius: parseFloat(radius),
-      userLocation: { latitude: userLat, longitude: userLon }
+      userLocation: { latitude: userLat, longitude: userLon },
+      radius: radiusNum
     });
 
   } catch (error) {
-    console.error('Nearby users error:', error);
+    console.error('Get nearby users error:', error);
     res.status(500).json({
       error: 'Failed to get nearby users',
       message: 'An error occurred while fetching nearby users',

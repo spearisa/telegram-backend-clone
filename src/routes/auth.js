@@ -79,13 +79,17 @@ router.post('/firebase-login', async (req, res) => {
       // Generate Signal keys for new user
       try {
         const signalKeys = generateSignalKeys();
-        await query(
-          `INSERT INTO signal_keys (
-            user_id, identity_key_public, identity_key_private, registration_id
-          ) VALUES ($1, $2, $3, $4)`,
-          [finalUserId, signalKeys.identityKey.publicKey, signalKeys.identityKey.privateKey, signalKeys.registrationId]
-        );
-        console.log('✅ Signal keys generated for user:', finalUserId);
+        if (signalKeys && signalKeys.identityKey && signalKeys.identityKey.publicKey) {
+          await query(
+            `INSERT INTO signal_keys (
+              user_id, identity_key_public, identity_key_private, registration_id
+            ) VALUES ($1, $2, $3, $4)`,
+            [finalUserId, signalKeys.identityKey.publicKey, signalKeys.identityKey.privateKey, signalKeys.registrationId]
+          );
+          console.log('✅ Signal keys generated for user:', finalUserId);
+        } else {
+          console.warn('⚠️ Signal keys generated but missing required properties');
+        }
       } catch (signalError) {
         console.warn('⚠️ Signal key generation failed, continuing without keys:', signalError.message);
         // Continue without Signal keys - this is not critical for basic functionality

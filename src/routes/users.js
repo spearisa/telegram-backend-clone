@@ -411,11 +411,23 @@ router.get('/:userId', authenticateToken, async (req, res) => {
 
     // Check if userId is a valid UUID
     if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(userId)) {
-      console.log('⚠️ Invalid UUID format for user lookup:', userId);
+      console.log('⚠️ Non-UUID format for user lookup:', userId);
+      
+      // Try to find user by email or username as fallback
+      const fallbackResult = await query(
+        'SELECT id, username, first_name, last_name, bio, profile_picture, is_online, last_seen, created_at FROM users WHERE email = $1 OR username = $1 LIMIT 1',
+        [userId]
+      );
+
+      if (fallbackResult.rows.length > 0) {
+        console.log('✅ Found user by fallback lookup:', userId);
+        return res.json(fallbackResult.rows[0]);
+      }
+
       return res.status(400).json({
         error: 'Invalid user ID format',
-        message: 'User ID must be a valid UUID format',
-        code: 'INVALID_UUID_FORMAT'
+        message: 'User ID must be a valid UUID format or existing email/username',
+        code: 'INVALID_USER_ID_FORMAT'
       });
     }
 
