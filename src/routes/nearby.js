@@ -285,9 +285,9 @@ router.get('/followers', authenticateToken, async (req, res) => {
         uf.created_at as followed_at
        FROM users u
        INNER JOIN user_follows uf ON u.id = uf.follower_id
-       WHERE uf.following_id = ?
+       WHERE uf.following_id = $1
        ORDER BY uf.created_at DESC
-       LIMIT $1 OFFSET $2`,
+       LIMIT $2 OFFSET $3`,
       [userId, parseInt(limit), parseInt(offset)]
     );
 

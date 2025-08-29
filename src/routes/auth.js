@@ -201,11 +201,23 @@ router.post('/register', [
       profilePicture 
     } = req.body;
 
-    // Check if user already exists
-    const existingUser = await query(
-      'SELECT id FROM users WHERE email = $1 OR (username = $2 AND username IS NOT NULL) OR (phone_number = $3 AND phone_number IS NOT NULL)',
-      [email, username, phoneNumber]
-    );
+    // Check if user already exists - only check non-null values
+    let existingUserQuery = 'SELECT id FROM users WHERE email = $1';
+    let queryParams = [email];
+    let paramIndex = 2;
+
+    if (username) {
+      existingUserQuery += ` OR username = $${paramIndex}`;
+      queryParams.push(username);
+      paramIndex++;
+    }
+
+    if (phoneNumber) {
+      existingUserQuery += ` OR phone_number = $${paramIndex}`;
+      queryParams.push(phoneNumber);
+    }
+
+    const existingUser = await query(existingUserQuery, queryParams);
 
     if (existingUser.rows.length > 0) {
       return res.status(409).json({
