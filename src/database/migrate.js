@@ -11,6 +11,7 @@ const createTables = async () => {
         username VARCHAR(30) UNIQUE NOT NULL,
         email VARCHAR(255) UNIQUE NOT NULL,
         phone_number VARCHAR(20) UNIQUE,
+        firebase_uid VARCHAR(255) UNIQUE,
         password_hash VARCHAR(255) NOT NULL,
         first_name VARCHAR(50),
         last_name VARCHAR(50),
@@ -233,6 +234,17 @@ const createTables = async () => {
       console.log('✅ Added missing columns to chats table');
     } catch (error) {
       console.log('⚠️ Chats table columns already exist or error:', error.message);
+    }
+
+    // Add missing firebase_uid column to users table if it doesn't exist
+    try {
+      await query(`
+        ALTER TABLE users 
+        ADD COLUMN IF NOT EXISTS firebase_uid VARCHAR(255) UNIQUE
+      `);
+      console.log('✅ Added missing firebase_uid column to users table');
+    } catch (error) {
+      console.log('⚠️ users table firebase_uid column already exists or error:', error.message);
     }
 
     // Add missing last_updated column to user_locations table if it doesn't exist

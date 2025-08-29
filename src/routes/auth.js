@@ -60,11 +60,18 @@ router.post('/firebase-login', async (req, res) => {
 
     // Check if user already exists
     const existingUser = await query(
-      'SELECT id FROM users WHERE email = $1 OR id = $2',
+      'SELECT id FROM users WHERE email = $1 OR firebase_uid = $2',
       [email, uid]
     );
 
-    let finalUserId = uid;
+    let finalUserId;
+    if (existingUser.rows.length > 0) {
+      // User exists, use their existing UUID
+      finalUserId = existingUser.rows[0].id;
+    } else {
+      // Generate new UUID for new user
+      finalUserId = uuidv4();
+    }
 
     if (existingUser.rows.length > 0) {
       // User exists, update their information
@@ -87,9 +94,9 @@ router.post('/firebase-login', async (req, res) => {
       // Create new user with valid email and password hash
       await query(
         `INSERT INTO users (
-          id, username, email, first_name, last_name, profile_picture, password_hash, is_online, last_seen
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, true, CURRENT_TIMESTAMP)`,
-        [finalUserId, username, email, firstName, lastName, profilePicture, passwordHash]
+          id, username, email, first_name, last_name, profile_picture, password_hash, firebase_uid, is_online, last_seen
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, true, CURRENT_TIMESTAMP)`,
+        [finalUserId, username, email, firstName, lastName, profilePicture, passwordHash, uid]
       );
 
       // Generate Signal keys for new user
