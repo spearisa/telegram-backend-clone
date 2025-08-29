@@ -30,23 +30,30 @@ router.post('/firebase-login', async (req, res) => {
     // For now, we'll accept the Firebase token and create/update user
     // In production, you should verify the Firebase token with Firebase Admin SDK
     
-    let userId = userData?.uid || uuidv4();
-    const email = userData?.email;
+    // Generate a proper UUID for the user instead of using Firebase UID directly
+    const userId = uuidv4();
+    const email = userData?.email || `user_${Date.now()}@temp.com`; // Ensure email is never null
     const username = userData?.displayName || userData?.email?.split('@')[0] || `user_${Date.now()}`;
     const firstName = userData?.firstName || userData?.displayName?.split(' ')[0] || '';
     const lastName = userData?.lastName || userData?.displayName?.split(' ').slice(1).join(' ') || '';
     const profilePicture = userData?.photoURL || null;
+    
+    // Generate a random password hash for Firebase users (they don't use passwords)
+    const tempPassword = `firebase_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    const passwordHash = await bcrypt.hash(tempPassword, 10);
 
-    // Check if user already exists
+    // Check if user already exists by email
     const existingUser = await query(
-      'SELECT id, username, email, first_name, last_name, profile_picture FROM users WHERE email = $1 OR id = $2',
-      [email, userId]
+      'SELECT id, username, email, first_name, last_name, profile_picture FROM users WHERE email = $1',
+      [email]
     );
+
+    let finalUserId = userId;
 
     if (existingUser.rows.length > 0) {
       // User exists, update their information
       const user = existingUser.rows[0];
-      userId = user.id;
+      finalUserId = user.id;
       
       await query(
         `UPDATE users SET 
@@ -58,15 +65,15 @@ router.post('/firebase-login', async (req, res) => {
           last_seen = CURRENT_TIMESTAMP,
           updated_at = CURRENT_TIMESTAMP
          WHERE id = $5`,
-        [username, firstName, lastName, profilePicture, userId]
+        [username, firstName, lastName, profilePicture, finalUserId]
       );
     } else {
-      // Create new user
+      // Create new user with valid email and password hash
       await query(
         `INSERT INTO users (
-          id, username, email, first_name, last_name, profile_picture, is_online, last_seen
-        ) VALUES ($1, $2, $3, $4, $5, $6, true, CURRENT_TIMESTAMP)`,
-        [userId, username, email, firstName, lastName, profilePicture]
+          id, username, email, first_name, last_name, profile_picture, password_hash, is_online, last_seen
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, true, CURRENT_TIMESTAMP)`,
+        [finalUserId, username, email, firstName, lastName, profilePicture, passwordHash]
       );
 
       // Generate Signal keys for new user
@@ -75,20 +82,20 @@ router.post('/firebase-login', async (req, res) => {
         `INSERT INTO signal_keys (
           user_id, identity_key_public, identity_key_private, registration_id
         ) VALUES ($1, $2, $3, $4)`,
-        [userId, signalKeys.identityKey.publicKey, signalKeys.identityKey.privateKey, signalKeys.registrationId]
+        [finalUserId, signalKeys.identityKey.publicKey, signalKeys.identityKey.privateKey, signalKeys.registrationId]
       );
     }
 
     // Generate JWT tokens
-    const { accessToken, refreshToken } = generateTokens(userId);
+    const { accessToken, refreshToken } = generateTokens(finalUserId);
 
     // Save refresh token
-    await saveRefreshToken(userId, refreshToken);
+    await saveRefreshToken(finalUserId, refreshToken);
 
     // Get updated user data
     const userResult = await query(
       'SELECT id, username, email, first_name, last_name, bio, profile_picture, created_at FROM users WHERE id = $1',
-      [userId]
+      [finalUserId]
     );
 
     res.json({

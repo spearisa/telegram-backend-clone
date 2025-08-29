@@ -37,6 +37,8 @@
     "redis": "^4.6.8",
     "socket.io": "^4.7.2",
     "sqlite3": "^5.1.7",
+    "swagger-jsdoc": "^6.2.8",
+    "swagger-ui-express": "^5.0.1",
     "uuid": "^9.0.0"
   },
   "devDependencies": {

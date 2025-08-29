@@ -221,6 +221,19 @@ const createTables = async () => {
       )
     `);
 
+    // Add missing columns to chats table if they don't exist
+    try {
+      await query(`
+        ALTER TABLE chats 
+        ADD COLUMN IF NOT EXISTS last_message_at TIMESTAMP,
+        ADD COLUMN IF NOT EXISTS last_message_content TEXT,
+        ADD COLUMN IF NOT EXISTS last_message_sender_id UUID REFERENCES users(id)
+      `);
+      console.log('✅ Added missing columns to chats table');
+    } catch (error) {
+      console.log('⚠️ Chats table columns already exist or error:', error.message);
+    }
+
     // Create indexes for better performance
     await query('CREATE INDEX IF NOT EXISTS idx_messages_chat_id ON messages(chat_id)');
     await query('CREATE INDEX IF NOT EXISTS idx_messages_sender_id ON messages(sender_id)');

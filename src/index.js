@@ -103,6 +103,9 @@ app.use('/api/v1/nearby', nearbyRoutes);
 // WebSocket initialization
 initializeWebSocket(io);
 
+// Swagger UI - must be before 404 handler
+app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpecs));
+
 // Error handling middleware
 app.use(errorHandler);
 
