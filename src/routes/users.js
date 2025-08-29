@@ -211,7 +211,7 @@ router.get('/search', authenticateToken, async (req, res) => {
 
     const searchQuery = `%${q.trim()}%`;
     const userResult = await query(
-      `SELECT id, username, first_name, last_name, bio, profile_picture, is_online, last_seen, created_at 
+      `SELECT id, username, email, first_name, last_name, bio, profile_picture, is_online, last_seen, created_at 
        FROM users 
        WHERE (username LIKE $1 OR first_name LIKE $2 OR last_name LIKE $3) AND id != $4
        LIMIT $5`,
@@ -237,7 +237,7 @@ router.get('/search', authenticateToken, async (req, res) => {
 router.get('/contacts', authenticateToken, async (req, res) => {
   try {
     const contactsResult = await query(
-      `SELECT u.id, u.username, u.first_name, u.last_name, u.bio, u.profile_picture, u.is_online, u.last_seen, u.created_at
+      `SELECT u.id, u.username, u.email, u.first_name, u.last_name, u.bio, u.profile_picture, u.is_online, u.last_seen, u.created_at
        FROM users u
        INNER JOIN user_contacts uc ON u.id = uc.contact_id
        WHERE uc.user_id = $1`,
@@ -423,7 +423,7 @@ router.get('/:userId', authenticateToken, async (req, res) => {
       
       // Try to find user by email or username as fallback
       const fallbackResult = await query(
-        'SELECT id, username, first_name, last_name, bio, profile_picture, is_online, last_seen, created_at FROM users WHERE email = $1 OR username = $1 LIMIT 1',
+        'SELECT id, username, email, first_name, last_name, bio, profile_picture, is_online, last_seen, created_at FROM users WHERE email = $1 OR username = $1 LIMIT 1',
         [userId]
       );
 
@@ -442,7 +442,7 @@ router.get('/:userId', authenticateToken, async (req, res) => {
     }
 
     const userResult = await query(
-      'SELECT id, username, first_name, last_name, bio, profile_picture, is_online, last_seen, created_at FROM users WHERE id = $1',
+      'SELECT id, username, email, first_name, last_name, bio, profile_picture, is_online, last_seen, created_at FROM users WHERE id = $1',
       [userId]
     );
 
