@@ -79,7 +79,7 @@ const saveRefreshToken = async (userId, refreshToken) => {
   expiresAt.setDate(expiresAt.getDate() + 30); // 30 days
 
   await query(
-    'INSERT INTO user_sessions (user_id, refresh_token, expires_at) VALUES (?, ?, ?)',
+    'INSERT INTO user_sessions (user_id, refresh_token, expires_at) VALUES ($1, $2, $3)',
     [userId, refreshToken, expiresAt]
   );
 };
@@ -94,7 +94,7 @@ const verifyRefreshToken = async (refreshToken) => {
 
     // Check if refresh token exists in database
     const result = await query(
-      'SELECT user_id FROM user_sessions WHERE refresh_token = ? AND expires_at > datetime("now")',
+      'SELECT user_id FROM user_sessions WHERE refresh_token = $1 AND expires_at > NOW()',
       [refreshToken]
     );
 
@@ -110,7 +110,7 @@ const verifyRefreshToken = async (refreshToken) => {
 
 const revokeRefreshToken = async (refreshToken) => {
   await query(
-    'DELETE FROM user_sessions WHERE refresh_token = ?',
+    'DELETE FROM user_sessions WHERE refresh_token = $1',
     [refreshToken]
   );
 };

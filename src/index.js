@@ -11,6 +11,8 @@ require('dotenv').config();
 const { initializeDatabase } = require('./database/connection');
 const { initializeWebSocket } = require('./websocket/socket');
 const authRoutes = require('./routes/auth');
+const simpleAuthRoutes = require('./routes/simple-auth');
+const basicAuthRoutes = require('./routes/basic-auth');
 const userRoutes = require('./routes/users');
 const chatRoutes = require('./routes/chats');
 const messageRoutes = require('./routes/messages');
@@ -35,6 +37,9 @@ const PORT = process.env.PORT || 3000;
 // Security middleware
 app.use(helmet());
 app.use(compression());
+
+// Trust proxy for Railway
+app.set('trust proxy', 1);
 
 // CORS configuration
 app.use(cors({
@@ -85,6 +90,8 @@ app.get('/health', (req, res) => {
 
 // API routes
 app.use('/api/v1/auth', authRoutes);
+app.use('/api/v1/simple-auth', simpleAuthRoutes);
+app.use('/api/v1/basic-auth', basicAuthRoutes);
 app.use('/api/v1/users', userRoutes);
 app.use('/api/v1/chats', chatRoutes);
 app.use('/api/v1/messages', messageRoutes);

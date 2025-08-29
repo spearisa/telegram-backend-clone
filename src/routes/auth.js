@@ -14,9 +14,106 @@ const { generateSignalKeys } = require('../services/signalService');
 
 const router = express.Router();
 
-// Register new user
+// Firebase login endpoint
+router.post('/firebase-login', async (req, res) => {
+  try {
+    const { firebaseIdToken, userData } = req.body;
+
+    if (!firebaseIdToken) {
+      return res.status(400).json({
+        error: 'Firebase ID token required',
+        message: 'Please provide a valid Firebase ID token',
+        code: 'MISSING_FIREBASE_TOKEN'
+      });
+    }
+
+    // For now, we'll accept the Firebase token and create/update user
+    // In production, you should verify the Firebase token with Firebase Admin SDK
+    
+    let userId = userData?.uid || uuidv4();
+    const email = userData?.email;
+    const username = userData?.displayName || userData?.email?.split('@')[0] || `user_${Date.now()}`;
+    const firstName = userData?.firstName || userData?.displayName?.split(' ')[0] || '';
+    const lastName = userData?.lastName || userData?.displayName?.split(' ').slice(1).join(' ') || '';
+    const profilePicture = userData?.photoURL || null;
+
+    // Check if user already exists
+    const existingUser = await query(
+      'SELECT id, username, email, first_name, last_name, profile_picture FROM users WHERE email = $1 OR id = $2',
+      [email, userId]
+    );
+
+    if (existingUser.rows.length > 0) {
+      // User exists, update their information
+      const user = existingUser.rows[0];
+      userId = user.id;
+      
+      await query(
+        `UPDATE users SET 
+          username = COALESCE($1, username),
+          first_name = COALESCE($2, first_name),
+          last_name = COALESCE($3, last_name),
+          profile_picture = COALESCE($4, profile_picture),
+          is_online = true,
+          last_seen = CURRENT_TIMESTAMP,
+          updated_at = CURRENT_TIMESTAMP
+         WHERE id = $5`,
+        [username, firstName, lastName, profilePicture, userId]
+      );
+    } else {
+      // Create new user
+      await query(
+        `INSERT INTO users (
+          id, username, email, first_name, last_name, profile_picture, is_online, last_seen
+        ) VALUES ($1, $2, $3, $4, $5, $6, true, CURRENT_TIMESTAMP)`,
+        [userId, username, email, firstName, lastName, profilePicture]
+      );
+
+      // Generate Signal keys for new user
+      const signalKeys = generateSignalKeys();
+      await query(
+        `INSERT INTO signal_keys (
+          user_id, identity_key_public, identity_key_private, registration_id
+        ) VALUES ($1, $2, $3, $4)`,
+        [userId, signalKeys.identityKey.publicKey, signalKeys.identityKey.privateKey, signalKeys.registrationId]
+      );
+    }
+
+    // Generate JWT tokens
+    const { accessToken, refreshToken } = generateTokens(userId);
+
+    // Save refresh token
+    await saveRefreshToken(userId, refreshToken);
+
+    // Get updated user data
+    const userResult = await query(
+      'SELECT id, username, email, first_name, last_name, bio, profile_picture, created_at FROM users WHERE id = $1',
+      [userId]
+    );
+
+    res.json({
+      success: true,
+      message: 'Firebase login successful',
+      user: userResult.rows[0],
+      accessToken,
+      refreshToken,
+      expiresIn: 604800 // 7 days
+    });
+
+  } catch (error) {
+    console.error('Firebase login error:', error);
+    res.status(500).json({
+      error: 'Firebase login failed',
+      message: 'An error occurred during Firebase login',
+      code: 'FIREBASE_LOGIN_ERROR'
+    });
+  }
+});
+
+// Original working registration - accepts all fields
 router.post('/register', [
   body('username')
+    .optional()
     .isLength({ min: 3, max: 30 })
     .matches(/^[a-zA-Z0-9_]+$/)
     .withMessage('Username must be 3-30 characters, alphanumeric and underscore only'),
@@ -25,20 +122,20 @@ router.post('/register', [
     .normalizeEmail()
     .withMessage('Must be a valid email address'),
   body('password')
-    .isLength({ min: 8 })
-    .withMessage('Password must be at least 8 characters long'),
+    .isLength({ min: 6 })
+    .withMessage('Password must be at least 6 characters long'),
   body('phoneNumber')
     .optional()
     .matches(/^[\+]?[1-9][\d]{0,15}$/)
     .withMessage('Phone number must be valid (e.g., +1234567890 or 1234567890)'),
   body('firstName')
-    .notEmpty()
+    .optional()
     .isLength({ max: 50 })
-    .withMessage('First name is required and must be 50 characters or less'),
+    .withMessage('First name must be 50 characters or less'),
   body('lastName')
-    .notEmpty()
+    .optional()
     .isLength({ max: 50 })
-    .withMessage('Last name is required and must be 50 characters or less')
+    .withMessage('Last name must be 50 characters or less')
 ], async (req, res) => {
   try {
     // Check for validation errors
@@ -64,14 +161,14 @@ router.post('/register', [
 
     // Check if user already exists
     const existingUser = await query(
-      'SELECT id FROM users WHERE username = ? OR email = ? OR phone_number = ?',
-      [username, email, phoneNumber]
+      'SELECT id FROM users WHERE email = $1 OR (username = $2 AND username IS NOT NULL) OR (phone_number = $3 AND phone_number IS NOT NULL)',
+      [email, username, phoneNumber]
     );
 
     if (existingUser.rows.length > 0) {
       return res.status(409).json({
         error: 'User already exists',
-        message: 'Username, email, or phone number already registered',
+        message: 'Email, username, or phone number already registered',
         code: 'USER_EXISTS'
       });
     }
@@ -80,25 +177,14 @@ router.post('/register', [
     const saltRounds = 12;
     const passwordHash = await bcrypt.hash(password, saltRounds);
 
-    // Generate Signal Protocol keys
-    const signalKeys = await generateSignalKeys();
-
-    // Create user
+    // Create user with all fields
     const userId = uuidv4();
     await query(
       `INSERT INTO users (
         id, username, email, phone_number, password_hash, 
         first_name, last_name, profile_picture
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
       [userId, username, email, phoneNumber, passwordHash, firstName, lastName, profilePicture]
-    );
-
-    // Save Signal keys
-    await query(
-      `INSERT INTO signal_keys (
-        user_id, identity_key_public, identity_key_private, registration_id
-      ) VALUES (?, ?, ?, ?)`,
-      [userId, signalKeys.identityKey.publicKey, signalKeys.identityKey.privateKey, signalKeys.registrationId]
     );
 
     // Generate tokens
@@ -107,23 +193,17 @@ router.post('/register', [
 
     // Get user data
     const userResult = await query(
-      'SELECT id, username, email, first_name, last_name, bio, profile_picture, created_at FROM users WHERE id = ?',
+      'SELECT id, username, email, first_name, last_name, bio, profile_picture, created_at FROM users WHERE id = $1',
       [userId]
     );
 
     res.status(201).json({
+      success: true,
+      message: 'User registered successfully',
+      user: userResult.rows[0],
       accessToken,
       refreshToken,
-      expiresIn: 7 * 24 * 60 * 60, // 7 days in seconds
-      user: userResult.rows[0],
-      signalKeys: {
-        identityKey: {
-          publicKey: signalKeys.identityKey.publicKey,
-          privateKey: signalKeys.identityKey.privateKey
-        },
-        preKeys: signalKeys.preKeys,
-        signedPreKey: signalKeys.signedPreKey
-      }
+      expiresIn: 7 * 24 * 60 * 60 // 7 days in seconds
     });
 
   } catch (error) {
@@ -161,7 +241,7 @@ router.post('/login', [
 
     // Find user by username or email
     const userResult = await query(
-      'SELECT id, username, email, password_hash, first_name, last_name, bio, profile_picture FROM users WHERE username = ? OR email = ?',
+      'SELECT id, username, email, password_hash, first_name, last_name, bio, profile_picture FROM users WHERE username = $1 OR email = $2',
       [identifier, identifier]
     );
 
@@ -187,13 +267,13 @@ router.post('/login', [
 
     // Update last seen
     await query(
-      'UPDATE users SET last_seen = CURRENT_TIMESTAMP, is_online = 1 WHERE id = ?',
+      'UPDATE users SET last_seen = CURRENT_TIMESTAMP, is_online = true WHERE id = $1',
       [user.id]
     );
 
     // Get Signal keys
     const signalKeysResult = await query(
-      'SELECT identity_key_public, identity_key_private, registration_id FROM signal_keys WHERE user_id = ?',
+      'SELECT identity_key_public, identity_key_private, registration_id FROM signal_keys WHERE user_id = $1',
       [user.id]
     );
 

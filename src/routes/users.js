@@ -5,7 +5,6 @@ const { query } = require('../database/connection');
 
 const router = express.Router();
 
-
 // Create a new user (POST /api/v1/users)
 router.post("/", async (req, res) => {
   try {
@@ -16,7 +15,7 @@ router.post("/", async (req, res) => {
     // Insert user into database
     const result = await query(`
       INSERT INTO users (id, username, email, first_name, last_name, phone_number, profile_picture, is_online, last_seen)
-      VALUES (?, ?, ?, ?, ?, ?, ?, true, CURRENT_TIMESTAMP)
+              VALUES ($1, $2, $3, $4, $5, $6, $7, true, CURRENT_TIMESTAMP)
     `, [id, username, email, firstName, lastName, phoneNumber, profilePicture]);
     
     console.log("✅ User created successfully:", id);
@@ -84,11 +83,12 @@ router.get("/", async (req, res) => {
     });
   }
 });
+
 // Get user profile
 router.get('/profile', authenticateToken, async (req, res) => {
   try {
     const userResult = await query(
-      'SELECT id, username, email, phone_number, first_name, last_name, bio, profile_picture, is_online, last_seen, created_at FROM users WHERE id = ?',
+      'SELECT id, username, email, phone_number, first_name, last_name, bio, profile_picture, is_online, last_seen, created_at FROM users WHERE id = $1',
       [req.user.id]
     );
 
@@ -100,7 +100,20 @@ router.get('/profile', authenticateToken, async (req, res) => {
       });
     }
 
-    res.json(userResult.rows[0]);
+    const user = userResult.rows[0];
+    res.json({
+      id: user.id,
+      username: user.username,
+      email: user.email,
+      phoneNumber: user.phone_number,
+      firstName: user.first_name,
+      lastName: user.last_name,
+      bio: user.bio,
+      profilePicture: user.profile_picture,
+      isOnline: user.is_online,
+      lastSeen: user.last_seen,
+      createdAt: user.created_at
+    });
   } catch (error) {
     console.error('Get profile error:', error);
     res.status(500).json({
@@ -112,137 +125,57 @@ router.get('/profile', authenticateToken, async (req, res) => {
 });
 
 // Update user profile
-router.put('/profile', [
-  body('firstName')
-    .optional()
-    .isLength({ max: 50 })
-    .withMessage('First name must be 50 characters or less'),
-  body('lastName')
-    .optional()
-    .isLength({ max: 50 })
-    .withMessage('Last name must be 50 characters or less'),
-  body('bio')
-    .optional()
-    .isLength({ max: 200 })
-    .withMessage('Bio must be 200 characters or less'),
-  body('profilePicture')
-    .optional()
-    .isURL()
-    .withMessage('Profile picture must be a valid URL')
-], authenticateToken, async (req, res) => {
+router.put('/profile', authenticateToken, async (req, res) => {
   try {
-    const errors = validationResult(req);
-    if (!errors.isEmpty()) {
-      return res.status(400).json({
-        error: 'Validation failed',
-        message: 'Invalid input data',
-        details: errors.array(),
-        code: 'VALIDATION_ERROR'
-      });
-    }
+    const { username, email, firstName, lastName, bio, profilePicture } = req.body;
 
-    const { firstName, lastName, bio, profilePicture } = req.body;
+    // Check if username is already taken by another user
+    if (username) {
+      const existingUser = await query(
+        'SELECT id FROM users WHERE username = $1 AND id != $2',
+        [username, req.user.id]
+      );
+
+      if (existingUser.rows.length > 0) {
+        return res.status(409).json({
+          error: 'Username already taken',
+          message: 'Username is already in use by another user',
+          code: 'USERNAME_TAKEN'
+        });
+      }
+    }
 
     // Update user profile
-    await query(
-      `UPDATE users 
-       SET first_name = ?, last_name = ?, bio = ?, profile_picture = ?, updated_at = CURRENT_TIMESTAMP 
-       WHERE id = ?`,
-      [firstName, lastName, bio, profilePicture, req.user.id]
-    );
-
-    // Get updated profile
-    const userResult = await query(
-      'SELECT id, username, email, phone_number, first_name, last_name, bio, profile_picture, is_online, last_seen, created_at FROM users WHERE id = ?',
-      [req.user.id]
-    );
-
-    res.json({
-      message: 'Profile updated successfully',
-      user: userResult.rows[0]
-    });
-  } catch (error) {
-    console.error('Profile update error:', error);
-    res.status(500).json({
-      error: 'Failed to update profile',
-      message: 'An error occurred while updating profile',
-      code: 'PROFILE_UPDATE_ERROR'
-    });
-  }
-});
-
-// Get user by ID
-router.get('/:userId', authenticateToken, async (req, res) => {
-
-// Update user by ID (PUT /api/v1/users/:userId)
-router.put("/:userId", authenticateToken, async (req, res) => {
-  try {
-    const { userId } = req.params;
-    const updates = req.body;
-    
-    console.log("🔄 Updating user:", userId, "with updates:", updates);
-    
-    // Update user in database
-    const result = await query(`
-      UPDATE users SET 
-        username = COALESCE(?, username),
-        email = COALESCE(?, email),
-        first_name = COALESCE(?, first_name),
-        last_name = COALESCE(?, last_name),
-        phone_number = COALESCE(?, phone_number),
-        profile_picture = COALESCE(?, profile_picture),
-        bio = COALESCE(?, bio),
+    const result = await query(
+      `UPDATE users SET 
+        username = COALESCE($1, username),
+        email = COALESCE($2, email),
+        first_name = COALESCE($3, first_name),
+        last_name = COALESCE($4, last_name),
+        bio = COALESCE($5, bio),
+        profile_picture = COALESCE($6, profile_picture),
         updated_at = CURRENT_TIMESTAMP
-      WHERE id = ?
-    `, [updates.username, updates.email, updates.firstName, updates.lastName, updates.phoneNumber, updates.profilePicture, updates.bio, userId]);
-    
+       WHERE id = $7`,
+      [username, email, firstName, lastName, bio, profilePicture, req.user.id]
+    );
+
     if (result.rowCount === 0) {
       return res.status(404).json({
-        success: false,
-        error: "User not found",
-        message: "User with specified ID not found"
-      });
-    }
-    
-    console.log("✅ User updated successfully:", userId);
-    
-    res.json({
-      success: true,
-      message: "User updated successfully",
-      userId: userId
-    });
-  } catch (error) {
-    console.error("❌ Error updating user:", error);
-    res.status(500).json({
-      success: false,
-      error: "Failed to update user",
-      message: error.message
-    });
-  }
-});
-  try {
-    const { userId } = req.params;
-
-    const userResult = await query(
-      'SELECT id, username, first_name, last_name, bio, profile_picture, is_online, last_seen, created_at FROM users WHERE id = ?',
-      [userId]
-    );
-
-    if (userResult.rows.length === 0) {
-      return res.status(404).json({
         error: 'User not found',
-        message: 'User not found',
+        message: 'User profile not found',
         code: 'USER_NOT_FOUND'
       });
     }
 
-    res.json(userResult.rows[0]);
+    res.json({
+      message: 'Profile updated successfully'
+    });
   } catch (error) {
-    console.error('Get user error:', error);
+    console.error('Update profile error:', error);
     res.status(500).json({
-      error: 'Failed to get user',
-      message: 'An error occurred while fetching user',
-      code: 'USER_FETCH_ERROR'
+      error: 'Failed to update profile',
+      message: 'An error occurred while updating profile',
+      code: 'PROFILE_UPDATE_ERROR'
     });
   }
 });
@@ -264,8 +197,8 @@ router.get('/search', authenticateToken, async (req, res) => {
     const userResult = await query(
       `SELECT id, username, first_name, last_name, bio, profile_picture, is_online, last_seen, created_at 
        FROM users 
-       WHERE (username LIKE ? OR first_name LIKE ? OR last_name LIKE ?) AND id != ?
-       LIMIT ?`,
+       WHERE (username LIKE $1 OR first_name LIKE $2 OR last_name LIKE $3) AND id != $4
+       LIMIT $5`,
       [searchQuery, searchQuery, searchQuery, req.user.id, parseInt(limit)]
     );
 
@@ -291,7 +224,7 @@ router.get('/contacts', authenticateToken, async (req, res) => {
       `SELECT u.id, u.username, u.first_name, u.last_name, u.bio, u.profile_picture, u.is_online, u.last_seen, u.created_at
        FROM users u
        INNER JOIN user_contacts uc ON u.id = uc.contact_id
-       WHERE uc.user_id = ?`,
+       WHERE uc.user_id = $1`,
       [req.user.id]
     );
 
@@ -316,7 +249,7 @@ router.post('/contacts/:contactId', authenticateToken, async (req, res) => {
 
     // Check if contact exists
     const contactResult = await query(
-      'SELECT id FROM users WHERE id = ?',
+      'SELECT id FROM users WHERE id = $1',
       [contactId]
     );
 
@@ -330,7 +263,7 @@ router.post('/contacts/:contactId', authenticateToken, async (req, res) => {
 
     // Check if already a contact
     const existingContact = await query(
-      'SELECT id FROM user_contacts WHERE user_id = ? AND contact_id = ?',
+      'SELECT id FROM user_contacts WHERE user_id = $1 AND contact_id = $2',
       [req.user.id, contactId]
     );
 
@@ -344,7 +277,7 @@ router.post('/contacts/:contactId', authenticateToken, async (req, res) => {
 
     // Add contact
     await query(
-      'INSERT INTO user_contacts (user_id, contact_id) VALUES (?, ?)',
+      'INSERT INTO user_contacts (user_id, contact_id) VALUES ($1, $2)',
       [req.user.id, contactId]
     );
 
@@ -368,7 +301,7 @@ router.delete('/contacts/:contactId', authenticateToken, async (req, res) => {
     const { contactId } = req.params;
 
     await query(
-      'DELETE FROM user_contacts WHERE user_id = ? AND contact_id = ?',
+      'DELETE FROM user_contacts WHERE user_id = $1 AND contact_id = $2',
       [req.user.id, contactId]
     );
 
@@ -393,7 +326,7 @@ router.post('/block/:userId', authenticateToken, async (req, res) => {
 
     // Check if user exists
     const userResult = await query(
-      'SELECT id FROM users WHERE id = ?',
+      'SELECT id FROM users WHERE id = $1',
       [userId]
     );
 
@@ -407,7 +340,7 @@ router.post('/block/:userId', authenticateToken, async (req, res) => {
 
     // Check if already blocked
     const existingBlock = await query(
-      'SELECT id FROM user_blocked_users WHERE user_id = ? AND blocked_user_id = ?',
+      'SELECT id FROM user_blocked_users WHERE user_id = $1 AND blocked_user_id = $2',
       [req.user.id, userId]
     );
 
@@ -421,7 +354,7 @@ router.post('/block/:userId', authenticateToken, async (req, res) => {
 
     // Block user
     await query(
-      'INSERT INTO user_blocked_users (user_id, blocked_user_id) VALUES (?, ?)',
+      'INSERT INTO user_blocked_users (user_id, blocked_user_id) VALUES ($1, $2)',
       [req.user.id, userId]
     );
 
@@ -445,7 +378,7 @@ router.delete('/block/:userId', authenticateToken, async (req, res) => {
     const { userId } = req.params;
 
     await query(
-      'DELETE FROM user_blocked_users WHERE user_id = ? AND blocked_user_id = ?',
+      'DELETE FROM user_blocked_users WHERE user_id = $1 AND blocked_user_id = $2',
       [req.user.id, userId]
     );
 
@@ -459,6 +392,82 @@ router.delete('/block/:userId', authenticateToken, async (req, res) => {
       error: 'Failed to unblock user',
       message: 'An error occurred while unblocking user',
       code: 'UNBLOCK_USER_ERROR'
+    });
+  }
+});
+
+// Get user by ID
+router.get('/:userId', authenticateToken, async (req, res) => {
+  try {
+    const { userId } = req.params;
+
+    const userResult = await query(
+      'SELECT id, username, first_name, last_name, bio, profile_picture, is_online, last_seen, created_at FROM users WHERE id = $1',
+      [userId]
+    );
+
+    if (userResult.rows.length === 0) {
+      return res.status(404).json({
+        error: 'User not found',
+        message: 'User not found',
+        code: 'USER_NOT_FOUND'
+      });
+    }
+
+    res.json(userResult.rows[0]);
+  } catch (error) {
+    console.error('Get user error:', error);
+    res.status(500).json({
+      error: 'Failed to get user',
+      message: 'An error occurred while fetching user',
+      code: 'USER_FETCH_ERROR'
+    });
+  }
+});
+
+// Update user by ID (PUT /api/v1/users/:userId)
+router.put("/:userId", authenticateToken, async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const updates = req.body;
+    
+    console.log("🔄 Updating user:", userId, "with updates:", updates);
+    
+    // Update user in database
+    const result = await query(`
+      UPDATE users SET 
+        username = COALESCE($1, username),
+        email = COALESCE($2, email),
+        first_name = COALESCE($3, first_name),
+        last_name = COALESCE($4, last_name),
+        phone_number = COALESCE($5, phone_number),
+        profile_picture = COALESCE($6, profile_picture),
+        bio = COALESCE($7, bio),
+        updated_at = CURRENT_TIMESTAMP
+      WHERE id = $8
+    `, [updates.username, updates.email, updates.firstName, updates.lastName, updates.phoneNumber, updates.profilePicture, updates.bio, userId]);
+    
+    if (result.rowCount === 0) {
+      return res.status(404).json({
+        success: false,
+        error: "User not found",
+        message: "User with specified ID not found"
+      });
+    }
+    
+    console.log("✅ User updated successfully:", userId);
+    
+    res.json({
+      success: true,
+      message: "User updated successfully",
+      userId: userId
+    });
+  } catch (error) {
+    console.error("❌ Error updating user:", error);
+    res.status(500).json({
+      success: false,
+      error: "Failed to update user",
+      message: error.message
     });
   }
 });

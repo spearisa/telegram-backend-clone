@@ -48,7 +48,7 @@ router.post('/location', [
 
     // Check if user already has a location
     const existingLocation = await query(
-      'SELECT id FROM user_locations WHERE user_id = ?',
+      'SELECT id FROM user_locations WHERE user_id = $1',
       [userId]
     );
 
@@ -56,8 +56,8 @@ router.post('/location', [
       // Update existing location
       await query(
         `UPDATE user_locations 
-         SET latitude = ?, longitude = ?, accuracy = ?, last_updated = CURRENT_TIMESTAMP 
-         WHERE user_id = ?`,
+         SET latitude = $1, longitude = $2, accuracy = $3, last_updated = CURRENT_TIMESTAMP 
+         WHERE user_id = $1`,
         [latitude, longitude, accuracy, userId]
       );
     } else {
@@ -65,7 +65,7 @@ router.post('/location', [
       const locationId = uuidv4();
       await query(
         `INSERT INTO user_locations (id, user_id, latitude, longitude, accuracy) 
-         VALUES (?, ?, ?, ?, ?)`,
+         VALUES ($1, $2, $3, $4, $5)`,
         [locationId, userId, latitude, longitude, accuracy]
       );
     }
@@ -112,7 +112,7 @@ router.get('/nearby', [
     } else {
       // Get current user's location
       const userLocation = await query(
-        'SELECT latitude, longitude FROM user_locations WHERE user_id = ?',
+        'SELECT latitude, longitude FROM user_locations WHERE user_id = $1',
         [userId]
       );
 
@@ -136,7 +136,7 @@ router.get('/nearby', [
         ul.latitude, ul.longitude, ul.accuracy, ul.last_updated
        FROM users u
        INNER JOIN user_locations ul ON u.id = ul.user_id
-       WHERE u.id != ?`,
+       WHERE u.id != $1`,
       [userId]
     );
 
@@ -159,7 +159,7 @@ router.get('/nearby', [
     const usersWithFollowStatus = await Promise.all(
       usersInRadius.map(async (user) => {
         const followStatus = await query(
-          'SELECT id FROM user_follows WHERE follower_id = ? AND following_id = ?',
+          'SELECT id FROM user_follows WHERE follower_id = $1 AND following_id = $2',
           [userId, user.id]
         );
 
@@ -204,7 +204,7 @@ router.post('/follow/:userId', authenticateToken, async (req, res) => {
 
     // Check if user exists
     const userExists = await query(
-      'SELECT id FROM users WHERE id = ?',
+      'SELECT id FROM users WHERE id = $1',
       [followingId]
     );
 
@@ -218,7 +218,7 @@ router.post('/follow/:userId', authenticateToken, async (req, res) => {
 
     // Check if already following
     const alreadyFollowing = await query(
-      'SELECT id FROM user_follows WHERE follower_id = ? AND following_id = ?',
+      'SELECT id FROM user_follows WHERE follower_id = $1 AND following_id = $2',
       [followerId, followingId]
     );
 
@@ -233,7 +233,7 @@ router.post('/follow/:userId', authenticateToken, async (req, res) => {
     // Create follow relationship
     const followId = uuidv4();
     await query(
-      'INSERT INTO user_follows (id, follower_id, following_id) VALUES (?, ?, ?)',
+      'INSERT INTO user_follows (id, follower_id, following_id) VALUES ($1, $2, $3)',
       [followId, followerId, followingId]
     );
 
@@ -262,7 +262,7 @@ router.delete('/follow/:userId', authenticateToken, async (req, res) => {
 
     // Check if following
     const followExists = await query(
-      'SELECT id FROM user_follows WHERE follower_id = ? AND following_id = ?',
+      'SELECT id FROM user_follows WHERE follower_id = $1 AND following_id = $2',
       [followerId, followingId]
     );
 
@@ -276,7 +276,7 @@ router.delete('/follow/:userId', authenticateToken, async (req, res) => {
 
     // Remove follow relationship
     await query(
-      'DELETE FROM user_follows WHERE follower_id = ? AND following_id = ?',
+      'DELETE FROM user_follows WHERE follower_id = $1 AND following_id = $2',
       [followerId, followingId]
     );
 
@@ -311,7 +311,7 @@ router.get('/followers', authenticateToken, async (req, res) => {
        INNER JOIN user_follows uf ON u.id = uf.follower_id
        WHERE uf.following_id = ?
        ORDER BY uf.created_at DESC
-       LIMIT ? OFFSET ?`,
+       LIMIT $1 OFFSET $2`,
       [userId, parseInt(limit), parseInt(offset)]
     );
 
@@ -347,7 +347,7 @@ router.get('/following', authenticateToken, async (req, res) => {
        INNER JOIN user_follows uf ON u.id = uf.following_id
        WHERE uf.follower_id = ?
        ORDER BY uf.created_at DESC
-       LIMIT ? OFFSET ?`,
+       LIMIT $1 OFFSET $2`,
       [userId, parseInt(limit), parseInt(offset)]
     );
 

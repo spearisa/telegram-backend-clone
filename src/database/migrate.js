@@ -197,6 +197,30 @@ const createTables = async () => {
       )
     `);
 
+    // User locations table
+    await query(`
+      CREATE TABLE IF NOT EXISTS user_locations (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        user_id UUID REFERENCES users(id) ON DELETE CASCADE,
+        latitude DECIMAL(10, 8) NOT NULL,
+        longitude DECIMAL(11, 8) NOT NULL,
+        accuracy DECIMAL(10, 2),
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+
+    // User follows table
+    await query(`
+      CREATE TABLE IF NOT EXISTS user_follows (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        follower_id UUID REFERENCES users(id) ON DELETE CASCADE,
+        following_id UUID REFERENCES users(id) ON DELETE CASCADE,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE(follower_id, following_id)
+      )
+    `);
+
     // Create indexes for better performance
     await query('CREATE INDEX IF NOT EXISTS idx_messages_chat_id ON messages(chat_id)');
     await query('CREATE INDEX IF NOT EXISTS idx_messages_sender_id ON messages(sender_id)');
