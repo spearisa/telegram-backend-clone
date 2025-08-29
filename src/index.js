@@ -6,6 +6,8 @@ const helmet = require('helmet');
 const compression = require('compression');
 const morgan = require('morgan');
 const rateLimit = require('express-rate-limit');
+const swaggerUi = require('swagger-ui-express');
+const swaggerSpecs = require('./swagger');
 require('dotenv').config();
 
 const { initializeDatabase } = require('./database/connection');
