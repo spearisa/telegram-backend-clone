@@ -12,19 +12,27 @@ router.post("/", async (req, res) => {
     
     console.log("🔄 Creating new user:", { id, username, email });
     
-    // Generate a proper UUID if the provided ID is not a valid UUID
-    let userId = id;
-    if (id && !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id)) {
+    // Always generate a proper UUID - handle undefined, null, or invalid IDs
+    let userId;
+    if (id && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id)) {
+      userId = id; // Use provided valid UUID
+      console.log("✅ Using provided UUID:", userId);
+    } else {
       const { v4: uuidv4 } = require('uuid');
-      userId = uuidv4();
-      console.log("🔄 Generated UUID for user:", userId);
+      userId = uuidv4(); // Generate new UUID for undefined/invalid IDs
+      console.log("🔄 Generated new UUID for user:", userId);
     }
+    
+    // Generate a default password hash for users created via this endpoint
+    const bcrypt = require('bcryptjs');
+    const defaultPassword = `default_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    const passwordHash = await bcrypt.hash(defaultPassword, 10);
     
     // Insert user into database
     const result = await query(`
-      INSERT INTO users (id, username, email, first_name, last_name, phone_number, profile_picture, is_online, last_seen)
-              VALUES ($1, $2, $3, $4, $5, $6, $7, true, CURRENT_TIMESTAMP)
-    `, [userId, username, email, firstName, lastName, phoneNumber, profilePicture]);
+      INSERT INTO users (id, username, email, first_name, last_name, phone_number, profile_picture, password_hash, is_online, last_seen)
+              VALUES ($1, $2, $3, $4, $5, $6, $7, $8, true, CURRENT_TIMESTAMP)
+    `, [userId, username, email, firstName, lastName, phoneNumber, profilePicture, passwordHash]);
     
     console.log("✅ User created successfully:", userId);
     
