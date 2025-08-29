@@ -205,6 +205,7 @@ const createTables = async () => {
         latitude DECIMAL(10, 8) NOT NULL,
         longitude DECIMAL(11, 8) NOT NULL,
         accuracy DECIMAL(10, 2),
+        last_updated TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       )
@@ -232,6 +233,17 @@ const createTables = async () => {
       console.log('✅ Added missing columns to chats table');
     } catch (error) {
       console.log('⚠️ Chats table columns already exist or error:', error.message);
+    }
+
+    // Add missing last_updated column to user_locations table if it doesn't exist
+    try {
+      await query(`
+        ALTER TABLE user_locations 
+        ADD COLUMN IF NOT EXISTS last_updated TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      `);
+      console.log('✅ Added missing last_updated column to user_locations table');
+    } catch (error) {
+      console.log('⚠️ user_locations table column already exists or error:', error.message);
     }
 
     // Create indexes for better performance

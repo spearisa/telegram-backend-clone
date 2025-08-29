@@ -64,12 +64,13 @@ router.post('/location', [
       // Create new location
       const locationId = uuidv4();
       await query(
-        `INSERT INTO user_locations (id, user_id, latitude, longitude, accuracy) 
-         VALUES ($1, $2, $3, $4, $5)`,
+        `INSERT INTO user_locations (id, user_id, latitude, longitude, accuracy, last_updated) 
+         VALUES ($1, $2, $3, $4, $5, CURRENT_TIMESTAMP)`,
         [locationId, userId, latitude, longitude, accuracy]
       );
     }
 
+    console.log('✅ Location updated successfully for user:', userId);
     res.json({
       message: 'Location updated successfully',
       location: { latitude, longitude, accuracy }
