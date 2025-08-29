@@ -51,7 +51,8 @@ router.post('/upload', upload.single('file'), (req, res) => {
     }
 
     // Generate public URL
-    const fileUrl = `http://192.168.20.137:3000/uploads/${req.file.filename}`;
+    const baseUrl = process.env.BASE_URL || 'https://web-production-e4d3d.up.railway.app';
+    const fileUrl = `${baseUrl}/uploads/${req.file.filename}`;
 
     res.json({
       message: 'File uploaded successfully',
@@ -83,7 +84,8 @@ router.post('/upload-auth', authenticateToken, upload.single('file'), (req, res)
     }
 
     // Generate public URL
-    const fileUrl = `http://192.168.20.137:3000/uploads/${req.file.filename}`;
+    const baseUrl = process.env.BASE_URL || 'https://web-production-e4d3d.up.railway.app';
+    const fileUrl = `${baseUrl}/uploads/${req.file.filename}`;
 
     res.json({
       message: 'File uploaded successfully',
