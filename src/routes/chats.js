@@ -355,4 +355,36 @@ router.get('/debug/schema', authenticateToken, async (req, res) => {
   }
 });
 
+// Test endpoint to manually update chat last message
+router.post('/debug/update-last-message', authenticateToken, async (req, res) => {
+  try {
+    const { chatId, content, senderId } = req.body;
+    
+    console.log('🔄 Manual update test:', { chatId, content, senderId });
+    
+    const updateResult = await query(`
+      UPDATE chats 
+      SET last_message_at = NOW(), 
+          last_message_content = $1,
+          last_message_sender_id = $2,
+          updated_at = CURRENT_TIMESTAMP
+      WHERE id = $3
+    `, [content, senderId, chatId]);
+    
+    console.log('✅ Manual update result:', updateResult.rowCount, 'rows affected');
+    
+    res.json({
+      success: true,
+      rowsAffected: updateResult.rowCount,
+      message: 'Manual update complete'
+    });
+  } catch (error) {
+    console.error('Manual update error:', error);
+    res.status(500).json({
+      error: 'Manual update failed',
+      message: error.message
+    });
+  }
+});
+
 module.exports = router;
