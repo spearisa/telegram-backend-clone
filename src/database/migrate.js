@@ -259,6 +259,23 @@ const createTables = async () => {
       console.log('⚠️ users table firebase_uid column already exists or error:', error.message);
     }
 
+    // Fix phone_number constraint to allow multiple NULL/empty values
+    try {
+      // Drop existing unique constraint if it exists
+      await query(`
+        ALTER TABLE users DROP CONSTRAINT IF EXISTS users_phone_number_key
+      `);
+      
+      // Add new constraint that allows multiple NULL/empty values
+      await query(`
+        ALTER TABLE users ADD CONSTRAINT users_phone_number_key 
+        UNIQUE (phone_number) WHERE phone_number IS NOT NULL AND phone_number != ''
+      `);
+      console.log('✅ Fixed phone_number constraint to allow multiple NULL/empty values');
+    } catch (error) {
+      console.log('⚠️ phone_number constraint fix error:', error.message);
+    }
+
     // Add missing last_updated column to user_locations table if it doesn't exist
     try {
       await query(`

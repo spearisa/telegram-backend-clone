@@ -212,24 +212,24 @@ router.post('/:chatId', [
       });
     }
 
+    // Create message
+    const messageId = uuidv4();
+    const actualChatId = chatCheck.rows[0].id;
+    
     // Check if user is participant in this chat
     const participantCheck = await query(
       'SELECT id FROM chat_participants WHERE chat_id = $1 AND user_id = $2',
-      [chatId, req.user.id]
+      [actualChatId, req.user.id]
     );
 
     if (participantCheck.rows.length === 0) {
-      console.log('⚠️ User not participant in chat:', chatId);
+      console.log('⚠️ User not participant in chat:', actualChatId);
       return res.status(403).json({
         error: 'Access denied',
         message: 'You are not a participant in this chat',
         code: 'ACCESS_DENIED'
       });
     }
-
-    // Create message
-    const messageId = uuidv4();
-    const actualChatId = chatCheck.rows[0].id;
     const messageResult = await query(`
       INSERT INTO messages (id, chat_id, sender_id, content, message_type)
       VALUES ($1, $2, $3, $4, $5)

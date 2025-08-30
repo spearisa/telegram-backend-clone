@@ -552,6 +552,11 @@ router.put("/:userId", authenticateToken, async (req, res) => {
     
     console.log("🔄 Updating user:", userId, "with updates:", updates);
     
+    // Handle empty phone numbers - convert to NULL
+    if (updates.phoneNumber === '') {
+      updates.phoneNumber = null;
+    }
+    
     // Check if userId is a valid UUID
     const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(userId);
     
