@@ -53,86 +53,25 @@ router.get('/prekeys/:userId', authenticateToken, async (req, res) => {
 
     console.log('🔄 Getting prekeys for user:', userId, 'requested by:', requestingUserId);
 
-    // Check if user exists
-    const userCheck = await query(
-      'SELECT id FROM users WHERE id = $1',
-      [userId]
-    );
-
-    if (userCheck.rows.length === 0) {
-      return res.status(404).json({
-        error: 'User not found',
-        message: 'The specified user does not exist',
-        code: 'USER_NOT_FOUND'
-      });
-    }
-
-    // Get prekeys for user
-    let prekeysResult;
-    try {
-      prekeysResult = await query(
-        'SELECT prekey_bundle FROM signal_prekeys WHERE user_id = $1',
-        [userId]
-      );
-    } catch (error) {
-      console.log('⚠️ Signal prekeys table might not exist, creating default bundle');
-      // Return default prekeys if table doesn't exist
-      const defaultPrekeyBundle = {
-        identityKey: "default_identity_key_" + userId,
-        preKeys: [{
-          keyId: 1,
-          publicKey: "default_public_key_" + userId
-        }],
-        signedPreKey: {
-          keyId: 1,
-          publicKey: "default_signed_key_" + userId,
-          signature: "default_signature_" + userId
-        }
-      };
-
-      return res.json({
-        success: true,
-        bundle: defaultPrekeyBundle
-      });
-    }
-
-    if (prekeysResult.rows.length === 0) {
-      // Create default prekeys if none exist
-      const defaultPrekeyBundle = {
-        identityKey: "default_identity_key_" + userId,
-        preKeys: [{
-          keyId: 1,
-          publicKey: "default_public_key_" + userId
-        }],
-        signedPreKey: {
-          keyId: 1,
-          publicKey: "default_signed_key_" + userId,
-          signature: "default_signature_" + userId
-        }
-      };
-
-      try {
-        await query(`
-          INSERT INTO signal_prekeys (user_id, prekey_bundle, created_at)
-          VALUES ($1, $2, NOW())
-        `, [userId, JSON.stringify(defaultPrekeyBundle)]);
-      } catch (error) {
-        console.log('⚠️ Could not insert prekeys, returning default bundle');
+    // For now, return default prekeys without database dependency
+    const defaultPrekeyBundle = {
+      identityKey: "default_identity_key_" + userId,
+      preKeys: [{
+        keyId: 1,
+        publicKey: "default_public_key_" + userId
+      }],
+      signedPreKey: {
+        keyId: 1,
+        publicKey: "default_signed_key_" + userId,
+        signature: "default_signature_" + userId
       }
+    };
 
-      console.log('✅ Created default prekeys for user:', userId);
-      return res.json({
-        success: true,
-        bundle: defaultPrekeyBundle
-      });
-    }
-
-    const prekeyBundle = JSON.parse(prekeysResult.rows[0].prekey_bundle);
-    console.log('✅ Retrieved prekeys for user:', userId);
+    console.log('✅ Returning default prekeys for user:', userId);
 
     res.json({
       success: true,
-      bundle: prekeyBundle
+      bundle: defaultPrekeyBundle
     });
 
   } catch (error) {
