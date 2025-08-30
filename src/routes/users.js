@@ -12,6 +12,34 @@ router.post("/", async (req, res) => {
     
     console.log("🔄 Creating new user:", { id, username, email });
     
+    // Check if username already exists
+    if (username) {
+      const existingUser = await query('SELECT id FROM users WHERE username = $1', [username]);
+      if (existingUser.rows.length > 0) {
+        console.log("⚠️ Username already exists:", username);
+        return res.status(409).json({
+          success: false,
+          error: 'Username already exists',
+          message: 'A user with this username already exists',
+          code: 'USERNAME_ALREADY_EXISTS'
+        });
+      }
+    }
+    
+    // Check if email already exists
+    if (email) {
+      const existingEmail = await query('SELECT id FROM users WHERE email = $1', [email]);
+      if (existingEmail.rows.length > 0) {
+        console.log("⚠️ Email already exists:", email);
+        return res.status(409).json({
+          success: false,
+          error: 'Email already exists',
+          message: 'A user with this email already exists',
+          code: 'EMAIL_ALREADY_EXISTS'
+        });
+      }
+    }
+    
     // Always generate a proper UUID - handle undefined, null, or invalid IDs
     let userId;
     if (id && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id)) {
@@ -52,6 +80,26 @@ router.post("/", async (req, res) => {
     });
   } catch (error) {
     console.error("❌ Error creating user:", error);
+    
+    // Handle specific database constraint violations
+    if (error.code === '23505') { // PostgreSQL unique violation error code
+      if (error.constraint === 'users_username_key') {
+        return res.status(409).json({
+          success: false,
+          error: 'Username already exists',
+          message: 'A user with this username already exists',
+          code: 'USERNAME_ALREADY_EXISTS'
+        });
+      } else if (error.constraint === 'users_email_key') {
+        return res.status(409).json({
+          success: false,
+          error: 'Email already exists',
+          message: 'A user with this email already exists',
+          code: 'EMAIL_ALREADY_EXISTS'
+        });
+      }
+    }
+    
     res.status(500).json({
       success: false,
       error: "Failed to create user",
