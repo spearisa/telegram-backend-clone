@@ -36,6 +36,18 @@ const createTables = async () => {
       )
     `);
 
+    // Signal prekeys table
+    await query(`
+      CREATE TABLE IF NOT EXISTS signal_prekeys (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        user_id UUID REFERENCES users(id) ON DELETE CASCADE,
+        prekey_bundle JSONB NOT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE(user_id)
+      )
+    `);
+
     // Prekeys table
     await query(`
       CREATE TABLE IF NOT EXISTS prekeys (

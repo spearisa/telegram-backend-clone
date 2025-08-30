@@ -169,15 +169,6 @@ router.post('/follow/:userId', authenticateToken, async (req, res) => {
     const followerId = req.user.id;
     const followingId = req.params.userId;
 
-    // Check if trying to follow self
-    if (followerId === followingId) {
-      return res.status(400).json({
-        error: 'Cannot follow yourself',
-        message: 'You cannot follow your own account',
-        code: 'SELF_FOLLOW_ERROR'
-      });
-    }
-
     // Check if user exists
     const userExists = await query(
       'SELECT id FROM users WHERE id = $1',
@@ -189,6 +180,22 @@ router.post('/follow/:userId', authenticateToken, async (req, res) => {
         error: 'User not found',
         message: 'The user you are trying to follow does not exist',
         code: 'USER_NOT_FOUND'
+      });
+    }
+
+    // Handle self-follow (add to contacts)
+    if (followerId === followingId) {
+      // Add self to contacts instead of blocking
+      await query(`
+        INSERT INTO user_contacts (user_id, contact_id, created_at)
+        VALUES ($1, $2, NOW())
+        ON CONFLICT (user_id, contact_id) DO NOTHING
+      `, [followerId, followingId]);
+      
+      return res.status(201).json({
+        message: 'Added to contacts',
+        success: true,
+        isSelfFollow: true
       });
     }
 
@@ -213,8 +220,16 @@ router.post('/follow/:userId', authenticateToken, async (req, res) => {
       [followId, followerId, followingId]
     );
 
+    // Also add to contacts
+    await query(`
+      INSERT INTO user_contacts (user_id, contact_id, created_at)
+      VALUES ($1, $2, NOW())
+      ON CONFLICT (user_id, contact_id) DO NOTHING
+    `, [followerId, followingId]);
+
     res.status(201).json({
       message: 'Successfully followed user',
+      success: true,
       followId,
       followerId,
       followingId
