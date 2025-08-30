@@ -143,18 +143,68 @@ router.post('/:chatId', [
     }
 
     const { chatId } = req.params;
-    const { content, type = 'text' } = req.body;
+    const { content, type = 'text', recipientId } = req.body;
 
-    console.log('🔄 Sending message to chat:', chatId);
+    console.log('🔄 Sending message to chat:', chatId, 'recipientId:', recipientId);
 
-    // Check if chat exists
-    const chatCheck = await query(
+    // Check if chat exists, create if needed
+    let chatCheck = await query(
       'SELECT id FROM chats WHERE id = $1',
       [chatId]
     );
 
+    if (chatCheck.rows.length === 0 && recipientId) {
+      console.log('⚠️ Chat not found, creating new chat with recipient:', recipientId);
+      
+      // Check if recipient exists
+      const recipientCheck = await query(
+        'SELECT id FROM users WHERE id = $1',
+        [recipientId]
+      );
+
+      if (recipientCheck.rows.length === 0) {
+        return res.status(404).json({
+          error: 'Recipient not found',
+          message: 'The specified recipient does not exist',
+          code: 'RECIPIENT_NOT_FOUND'
+        });
+      }
+
+      // Check if chat already exists between these users
+      const existingChat = await query(`
+        SELECT c.id FROM chats c
+        INNER JOIN chat_participants cp1 ON c.id = cp1.chat_id
+        INNER JOIN chat_participants cp2 ON c.id = cp2.chat_id
+        WHERE c.is_group = false 
+          AND cp1.user_id = $1 AND cp2.user_id = $2
+          AND cp1.user_id != cp2.user_id
+      `, [req.user.id, recipientId]);
+
+      if (existingChat.rows.length > 0) {
+        // Use existing chat
+        chatCheck = { rows: [{ id: existingChat.rows[0].id }] };
+        console.log('✅ Found existing chat:', existingChat.rows[0].id);
+      } else {
+        // Create new private chat
+        const newChatId = uuidv4();
+        await query(`
+          INSERT INTO chats (id, type, is_group, member_count)
+          VALUES ($1, 'private', false, 2)
+        `, [newChatId]);
+
+        // Add both users as participants
+        await query(`
+          INSERT INTO chat_participants (chat_id, user_id, role)
+          VALUES ($1, $2, 'member'), ($1, $3, 'member')
+        `, [newChatId, req.user.id, recipientId]);
+
+        chatCheck = { rows: [{ id: newChatId }] };
+        console.log('✅ Created new chat:', newChatId);
+      }
+    }
+
     if (chatCheck.rows.length === 0) {
-      console.log('⚠️ Chat not found:', chatId);
+      console.log('⚠️ Chat not found and no recipient provided:', chatId);
       return res.status(404).json({
         error: 'Chat not found',
         message: 'The specified chat does not exist',
@@ -179,11 +229,12 @@ router.post('/:chatId', [
 
     // Create message
     const messageId = uuidv4();
+    const actualChatId = chatCheck.rows[0].id;
     const messageResult = await query(`
       INSERT INTO messages (id, chat_id, sender_id, content, message_type)
       VALUES ($1, $2, $3, $4, $5)
       RETURNING id, content, message_type, sender_id, created_at, updated_at
-    `, [messageId, chatId, req.user.id, content, type]);
+    `, [messageId, actualChatId, req.user.id, content, type]);
 
     // Get sender info
     const senderResult = await query(

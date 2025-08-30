@@ -58,11 +58,21 @@ app.use(cors({
   credentials: true
 }));
 
-// Rate limiting
+// Rate limiting - More generous for mobile app
 const limiter = rateLimit({
-  windowMs: parseInt(process.env.RATE_LIMIT_WINDOW_MS) || 15 * 60 * 1000, // 15 minutes
-  max: parseInt(process.env.RATE_LIMIT_MAX_REQUESTS) || 100, // limit each IP to 100 requests per windowMs
-  message: 'Too many requests from this IP, please try again later.'
+  windowMs: parseInt(process.env.RATE_LIMIT_WINDOW_MS) || 1 * 60 * 1000, // 1 minute window
+  max: parseInt(process.env.RATE_LIMIT_MAX_REQUESTS) || 1000, // Allow 1000 requests per minute per IP
+  message: {
+    error: 'Too many requests',
+    message: 'Rate limit exceeded. Please try again later.',
+    retryAfter: Math.ceil(60 / 1000)
+  },
+  standardHeaders: true,
+  legacyHeaders: false,
+  skip: (req) => {
+    // Skip rate limiting for health checks and OPTIONS requests
+    return req.path === '/health' || req.path === '/ws/status' || req.method === 'OPTIONS';
+  }
 });
 app.use('/api/', limiter);
 

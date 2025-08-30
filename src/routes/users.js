@@ -60,6 +60,82 @@ router.post("/", async (req, res) => {
   }
 });
 
+// Batch update user (PATCH /api/v1/users/batch-update)
+router.patch("/batch-update", authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const updates = req.body;
+    
+    console.log("🔄 Batch updating user:", userId, "with updates:", Object.keys(updates));
+    
+    // Filter out protected fields
+    const allowedFields = ['username', 'email', 'first_name', 'last_name', 'phone_number', 'profile_picture', 'bio', 'is_online', 'last_seen'];
+    const filteredUpdates = {};
+    
+    Object.keys(updates).forEach(key => {
+      if (allowedFields.includes(key) && key !== 'id' && key !== 'created_at') {
+        filteredUpdates[key] = updates[key];
+      }
+    });
+    
+    if (Object.keys(filteredUpdates).length === 0) {
+      return res.status(400).json({
+        success: false,
+        error: "No valid fields to update"
+      });
+    }
+    
+    const updateFields = Object.keys(filteredUpdates)
+      .map((key, index) => `${key} = $${index + 1}`);
+    
+    const updateValues = Object.values(filteredUpdates);
+    updateValues.push(new Date(), userId);
+    
+    const queryText = `
+      UPDATE users 
+      SET ${updateFields.join(', ')}, updated_at = $${updateValues.length - 1}
+      WHERE id = $${updateValues.length}
+      RETURNING *
+    `;
+    
+    const result = await query(queryText, updateValues);
+    
+    if (result.rows.length === 0) {
+      return res.status(404).json({
+        success: false,
+        error: "User not found"
+      });
+    }
+    
+    const updatedUser = result.rows[0];
+    console.log("✅ User updated successfully:", userId);
+    
+    res.json({
+      success: true,
+      data: {
+        id: updatedUser.id,
+        username: updatedUser.username,
+        email: updatedUser.email,
+        firstName: updatedUser.first_name,
+        lastName: updatedUser.last_name,
+        phoneNumber: updatedUser.phone_number,
+        profilePicture: updatedUser.profile_picture,
+        bio: updatedUser.bio,
+        isOnline: updatedUser.is_online,
+        lastSeen: updatedUser.last_seen,
+        updatedAt: updatedUser.updated_at
+      }
+    });
+  } catch (error) {
+    console.error("❌ Error updating user:", error);
+    res.status(500).json({
+      success: false,
+      error: "Failed to update user",
+      message: error.message
+    });
+  }
+});
+
 // Get all users (GET /api/v1/users)
 router.get("/", async (req, res) => {
   try {
