@@ -276,6 +276,19 @@ const createTables = async () => {
       console.log('⚠️ phone_number constraint fix error:', error.message);
     }
 
+    // Add missing last message columns to chats table
+    try {
+      await query(`
+        ALTER TABLE chats 
+        ADD COLUMN IF NOT EXISTS last_message_at TIMESTAMP,
+        ADD COLUMN IF NOT EXISTS last_message_content TEXT,
+        ADD COLUMN IF NOT EXISTS last_message_sender_id UUID REFERENCES users(id)
+      `);
+      console.log('✅ Added last message columns to chats table');
+    } catch (error) {
+      console.log('⚠️ chats table last message columns error:', error.message);
+    }
+
     // Add missing last_updated column to user_locations table if it doesn't exist
     try {
       await query(`

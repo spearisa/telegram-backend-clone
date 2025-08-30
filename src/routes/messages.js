@@ -242,6 +242,16 @@ router.post('/:chatId', [
       [req.user.id]
     );
 
+    // Update chat's last message information
+    await query(`
+      UPDATE chats 
+      SET last_message_at = $1, 
+          last_message_content = $2,
+          last_message_sender_id = $3,
+          updated_at = CURRENT_TIMESTAMP
+      WHERE id = $4
+    `, [messageResult.rows[0].created_at, content, req.user.id, actualChatId]);
+
     const message = {
       id: messageResult.rows[0].id,
       content: messageResult.rows[0].content,

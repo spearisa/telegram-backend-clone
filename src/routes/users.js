@@ -611,4 +611,133 @@ router.put("/:userId", authenticateToken, async (req, res) => {
   }
 });
 
+// Get user contacts
+router.get('/contacts', authenticateToken, async (req, res) => {
+  try {
+    const result = await query(`
+      SELECT u.id, u.username, u.first_name, u.last_name, u.profile_picture, 
+             u.is_online, u.last_seen, u.bio, u.phone_number, u.email
+      FROM user_contacts uc
+      INNER JOIN users u ON uc.contact_id = u.id
+      WHERE uc.user_id = $1
+      ORDER BY u.first_name, u.last_name
+    `, [req.user.id]);
+
+    const contacts = result.rows.map(row => ({
+      id: row.id,
+      username: row.username,
+      firstName: row.first_name,
+      lastName: row.last_name,
+      profilePicture: row.profile_picture,
+      isOnline: row.is_online,
+      lastSeen: row.last_seen,
+      bio: row.bio,
+      phoneNumber: row.phone_number,
+      email: row.email
+    }));
+
+    res.json({
+      success: true,
+      contacts: contacts
+    });
+
+  } catch (error) {
+    console.error('Get contacts error:', error);
+    res.status(500).json({
+      error: 'Failed to fetch contacts',
+      message: 'An error occurred while fetching contacts',
+      code: 'CONTACTS_FETCH_ERROR'
+    });
+  }
+});
+
+// Add contact
+router.post('/contacts/:contactId', authenticateToken, async (req, res) => {
+  try {
+    const { contactId } = req.params;
+    const userId = req.user.id;
+
+    // Check if contact exists
+    const contactCheck = await query(
+      'SELECT id FROM users WHERE id = $1',
+      [contactId]
+    );
+
+    if (contactCheck.rows.length === 0) {
+      return res.status(404).json({
+        error: 'Contact not found',
+        message: 'The specified user does not exist',
+        code: 'CONTACT_NOT_FOUND'
+      });
+    }
+
+    // Check if already in contacts
+    const existingContact = await query(
+      'SELECT id FROM user_contacts WHERE user_id = $1 AND contact_id = $2',
+      [userId, contactId]
+    );
+
+    if (existingContact.rows.length > 0) {
+      return res.status(409).json({
+        error: 'Contact already exists',
+        message: 'This user is already in your contacts',
+        code: 'CONTACT_ALREADY_EXISTS'
+      });
+    }
+
+    // Add to contacts
+    await query(
+      'INSERT INTO user_contacts (user_id, contact_id) VALUES ($1, $2)',
+      [userId, contactId]
+    );
+
+    res.status(201).json({
+      success: true,
+      message: 'Contact added successfully'
+    });
+
+  } catch (error) {
+    console.error('Add contact error:', error);
+    res.status(500).json({
+      error: 'Failed to add contact',
+      message: 'An error occurred while adding contact',
+      code: 'CONTACT_ADD_ERROR'
+    });
+  }
+});
+
+// Remove contact
+router.delete('/contacts/:contactId', authenticateToken, async (req, res) => {
+  try {
+    const { contactId } = req.params;
+    const userId = req.user.id;
+
+    const result = await query(
+      'DELETE FROM user_contacts WHERE user_id = $1 AND contact_id = $2',
+      [userId, contactId]
+    );
+
+    if (result.rowCount === 0) {
+      return res.status(404).json({
+        error: 'Contact not found',
+        message: 'This user is not in your contacts',
+        code: 'CONTACT_NOT_FOUND'
+      });
+    }
+
+    res.json({
+      success: true,
+      message: 'Contact removed successfully'
+    });
+
+  } catch (error) {
+    console.error('Remove contact error:', error);
+    res.status(500).json({
+      error: 'Failed to remove contact',
+      message: 'An error occurred while removing contact',
+      code: 'CONTACT_REMOVE_ERROR'
+    });
+  }
+});
+
 module.exports = router;

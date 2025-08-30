@@ -20,26 +20,62 @@ router.get('/', authenticateToken, async (req, res) => {
       ORDER BY COALESCE(c.last_message_at, c.created_at) DESC
     `, [req.user.id]);
 
-    const chats = result.rows.map(row => ({
-      id: row.id,
-      type: row.type,
-      title: row.title,
-      description: row.description,
-      isGroup: row.is_group,
-      memberCount: row.member_count,
-      createdAt: row.created_at,
-      lastMessageAt: row.last_message_at,
-      lastMessageContent: row.last_message_content,
-      lastMessageSender: row.last_message_sender_id ? {
-        id: row.last_message_sender_id,
-        username: row.last_message_sender_username,
-        firstName: row.last_message_sender_first_name
-      } : null
-    }));
+    // Get participants for each chat
+    const chatsWithParticipants = await Promise.all(
+      result.rows.map(async (row) => {
+        const participantsResult = await query(`
+          SELECT u.id, u.username, u.first_name, u.last_name, u.profile_picture, 
+                 u.is_online, u.last_seen, cp.role, cp.joined_at
+          FROM chat_participants cp
+          INNER JOIN users u ON cp.user_id = u.id
+          WHERE cp.chat_id = $1
+          ORDER BY cp.joined_at ASC
+        `, [row.id]);
+
+        const participants = participantsResult.rows.map(participant => ({
+          id: participant.id,
+          username: participant.username,
+          firstName: participant.first_name,
+          lastName: participant.last_name,
+          profilePicture: participant.profile_picture,
+          isOnline: participant.is_online,
+          lastSeen: participant.last_seen,
+          role: participant.role,
+          joinedAt: participant.joined_at
+        }));
+
+        return {
+          id: row.id,
+          type: row.type,
+          title: row.title,
+          description: row.description,
+          isGroup: row.is_group,
+          groupName: row.is_group ? row.title : null,
+          groupType: row.is_group ? 'basic' : null,
+          memberCount: row.member_count,
+          participants: participants,
+          unreadCount: 0, // TODO: Implement unread count
+          createdAt: row.created_at,
+          lastMessageAt: row.last_message_at,
+          lastMessage: row.last_message_content ? {
+            id: 'temp', // We don't have message ID in this query
+            content: row.last_message_content,
+            type: 'text',
+            senderId: row.last_message_sender_id,
+            sender: row.last_message_sender_id ? {
+              id: row.last_message_sender_id,
+              username: row.last_message_sender_username,
+              firstName: row.last_message_sender_first_name
+            } : null,
+            createdAt: row.last_message_at
+          } : null
+        };
+      })
+    );
 
     res.json({
       success: true,
-      chats: chats
+      chats: chatsWithParticipants
     });
 
   } catch (error) {
