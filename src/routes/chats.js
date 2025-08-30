@@ -331,7 +331,7 @@ router.put('/:chatId', [
 });
 
 // Test endpoint to check database schema
-router.get('/test-schema', authenticateToken, async (req, res) => {
+router.get('/debug/schema', authenticateToken, async (req, res) => {
   try {
     // Test if last_message_content column exists
     const result = await query(`
