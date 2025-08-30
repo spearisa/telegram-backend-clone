@@ -330,4 +330,29 @@ router.put('/:chatId', [
   }
 });
 
+// Test endpoint to check database schema
+router.get('/test-schema', authenticateToken, async (req, res) => {
+  try {
+    // Test if last_message_content column exists
+    const result = await query(`
+      SELECT column_name, data_type 
+      FROM information_schema.columns 
+      WHERE table_name = 'chats' 
+      AND column_name IN ('last_message_at', 'last_message_content', 'last_message_sender_id')
+    `);
+    
+    res.json({
+      success: true,
+      columns: result.rows,
+      message: 'Database schema check complete'
+    });
+  } catch (error) {
+    console.error('Schema test error:', error);
+    res.status(500).json({
+      error: 'Schema test failed',
+      message: error.message
+    });
+  }
+});
+
 module.exports = router;
