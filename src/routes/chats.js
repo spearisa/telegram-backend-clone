@@ -20,6 +20,8 @@ router.get('/', authenticateToken, async (req, res) => {
       ORDER BY COALESCE(c.last_message_at, c.created_at) DESC
     `, [req.user.id]);
 
+    console.log('🔍 Chat list query result:', result.rows[0]);
+
     // Get participants for each chat
     const chatsWithParticipants = await Promise.all(
       result.rows.map(async (row) => {
