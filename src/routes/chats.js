@@ -373,9 +373,19 @@ router.post('/debug/update-last-message', authenticateToken, async (req, res) =>
     
     console.log('✅ Manual update result:', updateResult.rowCount, 'rows affected');
     
+    // Check the updated data
+    const checkResult = await query(`
+      SELECT id, title, last_message_at, last_message_content, last_message_sender_id
+      FROM chats 
+      WHERE id = $1
+    `, [chatId]);
+    
+    console.log('🔍 Updated chat data:', checkResult.rows[0]);
+    
     res.json({
       success: true,
       rowsAffected: updateResult.rowCount,
+      updatedData: checkResult.rows[0],
       message: 'Manual update complete'
     });
   } catch (error) {
