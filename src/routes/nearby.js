@@ -46,6 +46,16 @@ router.post('/location', [
     const { latitude, longitude, accuracy } = req.body;
     const userId = req.user.id;
 
+    // Additional validation for latitude and longitude
+    if (typeof latitude !== 'number' || typeof longitude !== 'number' || 
+        isNaN(latitude) || isNaN(longitude)) {
+      return res.status(400).json({
+        error: 'Invalid location data',
+        message: 'Latitude and longitude must be valid numbers',
+        code: 'INVALID_LOCATION_DATA'
+      });
+    }
+
     // Check if user already has a location
     const existingLocation = await query(
       'SELECT id FROM user_locations WHERE user_id = $1',
@@ -111,15 +121,31 @@ router.get('/nearby', authenticateToken, async (req, res) => {
     );
 
     if (userLocation.rows.length === 0) {
-      return res.status(400).json({
-        error: 'No location found',
-        message: 'Please update your location first',
-        code: 'NO_LOCATION'
+      // Return empty result instead of error for new users
+      return res.json({
+        success: true,
+        users: [],
+        userLocation: null,
+        radius: radiusNum,
+        message: 'No location set. Please update your location to see nearby users.'
       });
     }
 
     const userLat = userLocation.rows[0].latitude;
     const userLon = userLocation.rows[0].longitude;
+
+    // Validate that latitude and longitude are valid numbers
+    if (typeof userLat !== 'number' || typeof userLon !== 'number' || 
+        isNaN(userLat) || isNaN(userLon)) {
+      console.error('Invalid user location data:', { userLat, userLon, userId });
+      return res.json({
+        success: true,
+        users: [],
+        userLocation: null,
+        radius: radiusNum,
+        message: 'Invalid location data. Please update your location.'
+      });
+    }
 
     // Get all users with locations
     const nearbyUsers = await query(`
